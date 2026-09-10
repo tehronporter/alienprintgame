@@ -3,6 +3,7 @@ extends Node3D
 const Player = preload("res://scripts/player.gd")
 const Enemy = preload("res://scripts/enemy.gd")
 const SpawnDirector = preload("res://scripts/spawn_director.gd")
+const MobileControls = preload("res://scripts/mobile_controls.gd")
 
 const GREEN := Color("#7dff35")
 const GREEN_SOFT := Color("#164d20")
@@ -32,6 +33,11 @@ var sensitivity_value: Label
 var touchpad_toggle: CheckButton
 var look_sensitivity := 0.0025
 var touchpad_mode := false
+var mobile_controls_visible := false
+var mobile_move_vector := Vector2.ZERO
+var mobile_look_delta := Vector2.ZERO
+var mobile_fire := false
+var mobile_reload := false
 const SETTINGS_PATH := "user://neon_mall_settings.cfg"
 
 func _ready() -> void:
@@ -83,6 +89,7 @@ func _build_world() -> void:
 	_make_tree_line()
 	_make_flags()
 	_make_ground_doodles()
+	_make_map_set_dressing()
 	_make_ufo(Vector3(-24, 17, -22), 1.2)
 	_make_ufo(Vector3(24, 20, 4), 0.8)
 
@@ -224,6 +231,35 @@ func _make_ufo(pos: Vector3, scale_factor: float) -> void:
 	for i in range(4):
 		_make_visual_box("UFOBeam", pos + Vector3((float(i) - 1.5) * 0.45, -1.1 * scale_factor, 0), Vector3(0.06, 2.0 * scale_factor, 0.06), GREEN_SOFT, 0.9)
 
+func _make_map_set_dressing() -> void:
+	for x in [-12.0, 12.0]:
+		for z in [-30.0, -14.0, 2.0, 18.0, 34.0]:
+			_make_visual_box("BenchSeat", Vector3(x, 0.8, z), Vector3(2.8, 0.16, 0.55), GREEN_DARK, 0.2)
+			_make_outline_box(Vector3(x, 0.8, z), Vector3(2.9, 0.85, 0.65), GREEN_SOFT, 0.9)
+	for i in range(22):
+		var angle := float(i) * 1.71
+		var radius := 8.0 + fmod(float(i * 17), 34.0)
+		var pos := Vector3(cos(angle) * radius, 0.65, sin(angle) * radius)
+		_make_visual_box("TrashCan", pos, Vector3(0.6, 1.3, 0.6), GREEN_DARK, 0.18)
+		_make_outline_box(pos, Vector3(0.65, 1.35, 0.65), GREEN_SOFT, 0.75)
+	for z in [-22.0, 6.0, 30.0]:
+		_make_visual_box("MallBarrier", Vector3(-7.0, 0.7, z), Vector3(4.0, 1.4, 0.25), GREEN_DARK, 0.16)
+		_make_outline_box(Vector3(-7.0, 0.7, z), Vector3(4.1, 1.45, 0.3), GREEN, 1.0)
+	_make_subway_entrance(Vector3(31.0, 0, 1.0))
+	_make_zone_marker("CAPITOL APPROACH", Vector3(0, 0.04, -31.0), 1.0)
+	_make_zone_marker("REFLECTING POOL", Vector3(0, 0.04, 0.0), 0.82)
+	_make_zone_marker("MONUMENT LINE", Vector3(0, 0.04, 29.0), 0.72)
+
+func _make_subway_entrance(pos: Vector3) -> void:
+	_make_outline_box(pos + Vector3(0, 1.1, 0), Vector3(6.0, 2.2, 3.0), GREEN, 1.1)
+	_make_visual_box("MetroSign", pos + Vector3(0, 2.6, -1.3), Vector3(1.8, 0.6, 0.14), GREEN, 1.7)
+	for i in range(5):
+		_make_visual_box("MetroStep", pos + Vector3(0, 0.1 + float(i) * 0.22, 0.8 - float(i) * 0.38), Vector3(3.3 - float(i) * 0.3, 0.15, 0.25), GREEN_SOFT, 0.45)
+
+func _make_zone_marker(_text: String, pos: Vector3, scale_factor: float) -> void:
+	var marker := _make_visual_box("ZoneMarker", pos + Vector3(0, 0.06, 0), Vector3(5.5, 0.04, 0.08) * scale_factor, GREEN_SOFT, 0.7)
+	marker.rotation.y = 0.05
+
 func _build_player() -> void:
 	player = Player.new()
 	player.name = "Player"
@@ -294,6 +330,10 @@ func _build_hud() -> void:
 		root.add_child(label)
 		hud_labels[spec[0]] = label
 	_build_settings_panel(root)
+	var mobile_controls := MobileControls.new()
+	mobile_controls.name = "MobileControls"
+	mobile_controls.main = self
+	root.add_child(mobile_controls)
 	crosshair = hud_labels["center"]
 	crosshair.text = "⊕"
 

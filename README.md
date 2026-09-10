@@ -26,6 +26,10 @@ Then press Play. The project is configured for the Compatibility renderer and We
 
 The title screen and pause screen include **Control Calibration**. Enable **Touchpad Mode** for a slower, steadier look multiplier, then tune the sensitivity slider until camera movement feels comfortable. The setting is saved per computer in Godot's `user://` preferences and does not affect other players or devices.
 
+## Mobile web controls
+
+Mobile builds request landscape orientation and use an on-screen left joystick for movement, right-side drag aiming, plus Fire and Reload buttons. The viewport uses an expanding landscape layout so the controls remain usable across phone and tablet aspect ratios. `F2` toggles the touch-control overlay during desktop testing.
+
 ## Blender source kit
 
 When Blender is available:

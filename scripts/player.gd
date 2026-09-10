@@ -88,6 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		pitch = clamp(pitch - event.relative.y * sensitivity, -1.35, 1.35)
 		rotation.y = yaw
 		camera.rotation.x = pitch
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F2:
+		main.mobile_controls_visible = not main.mobile_controls_visible
 
 func _physics_process(delta: float) -> void:
 	if not main.game_started or main.game_over or main.paused:
@@ -101,7 +103,16 @@ func _physics_process(delta: float) -> void:
 		reload_timer -= delta
 		if reload_timer <= 0.0:
 			_finish_reload()
+	if main.mobile_look_delta.length() > 0.0:
+		var mobile_sensitivity: float = main.look_sensitivity * 0.72
+		yaw -= main.mobile_look_delta.x * mobile_sensitivity
+		pitch = clamp(pitch - main.mobile_look_delta.y * mobile_sensitivity, -1.35, 1.35)
+		rotation.y = yaw
+		camera.rotation.x = pitch
+		main.mobile_look_delta = Vector2.ZERO
 	var input_vec := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if main.mobile_move_vector.length() > 0.05:
+		input_vec = main.mobile_move_vector
 	var direction := (transform.basis * Vector3(input_vec.x, 0, input_vec.y)).normalized()
 	velocity.x = direction.x * SPEED
 	velocity.z = direction.z * SPEED
@@ -118,8 +129,13 @@ func _physics_process(delta: float) -> void:
 	weapon.rotation_degrees.x = -7.0 + recoil * 8.0
 	if Input.is_action_pressed("fire"):
 		_fire()
+	if main.mobile_fire:
+		_fire()
 	if Input.is_action_just_pressed("reload"):
 		_start_reload()
+	if main.mobile_reload:
+		_start_reload()
+		main.mobile_reload = false
 
 func _fire() -> void:
 	if reloading or fire_cooldown > 0.0:
