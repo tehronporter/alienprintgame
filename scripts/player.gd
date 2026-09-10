@@ -83,8 +83,9 @@ func _weapon_part(offset: Vector3, size: Vector3, color: Color, energy: float) -
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and main.game_started and not main.game_over and not main.paused:
-		yaw -= event.relative.x * 0.0025
-		pitch = clamp(pitch - event.relative.y * 0.0025, -1.35, 1.35)
+		var sensitivity: float = main.look_sensitivity * (0.58 if main.touchpad_mode else 1.0)
+		yaw -= event.relative.x * sensitivity
+		pitch = clamp(pitch - event.relative.y * sensitivity, -1.35, 1.35)
 		rotation.y = yaw
 		camera.rotation.x = pitch
 

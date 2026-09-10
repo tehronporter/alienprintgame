@@ -22,6 +22,10 @@ Then press Play. The project is configured for the Compatibility renderer and We
 - `Enter` deploy from the title screen
 - Click after death to redeploy
 
+## Mac touchpad controls
+
+The title screen and pause screen include **Control Calibration**. Enable **Touchpad Mode** for a slower, steadier look multiplier, then tune the sensitivity slider until camera movement feels comfortable. The setting is saved per computer in Godot's `user://` preferences and does not affect other players or devices.
+
 ## Blender source kit
 
 When Blender is available:

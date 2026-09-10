@@ -26,10 +26,18 @@ var hud: CanvasLayer
 var hud_labels := {}
 var crosshair: Label
 var arena_root: Node3D
+var settings_panel: PanelContainer
+var sensitivity_slider: HSlider
+var sensitivity_value: Label
+var touchpad_toggle: CheckButton
+var look_sensitivity := 0.0025
+var touchpad_mode := false
+const SETTINGS_PATH := "user://neon_mall_settings.cfg"
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_load_settings()
 	_build_world()
 	_build_player()
 	_build_enemy_pool()
@@ -285,8 +293,97 @@ func _build_hud() -> void:
 			label.position = spec[1]
 		root.add_child(label)
 		hud_labels[spec[0]] = label
+	_build_settings_panel(root)
 	crosshair = hud_labels["center"]
 	crosshair.text = "⊕"
+
+func _build_settings_panel(root: Control) -> void:
+	settings_panel = PanelContainer.new()
+	settings_panel.name = "ControlSettings"
+	settings_panel.position = Vector2(28, 150)
+	settings_panel.size = Vector2(360, 205)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.005, 0.025, 0.008, 0.94)
+	panel_style.border_color = GREEN
+	panel_style.set_border_width_all(2)
+	panel_style.corner_radius_top_left = 4
+	panel_style.corner_radius_top_right = 4
+	panel_style.corner_radius_bottom_left = 4
+	panel_style.corner_radius_bottom_right = 4
+	settings_panel.add_theme_stylebox_override("panel", panel_style)
+	root.add_child(settings_panel)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 6)
+	settings_panel.add_child(content)
+	var title := Label.new()
+	title.text = "CONTROL CALIBRATION"
+	title.add_theme_color_override("font_color", GREEN)
+	title.add_theme_font_size_override("font_size", 18)
+	content.add_child(title)
+	var help := Label.new()
+	help.text = "Tune this once for your Mac pointer."
+	help.add_theme_color_override("font_color", GREEN_SOFT)
+	content.add_child(help)
+	var sensitivity_row := HBoxContainer.new()
+	var sensitivity_label := Label.new()
+	sensitivity_label.text = "LOOK SENSITIVITY"
+	sensitivity_label.custom_minimum_size.x = 170
+	sensitivity_label.add_theme_color_override("font_color", GREEN)
+	sensitivity_row.add_child(sensitivity_label)
+	sensitivity_slider = HSlider.new()
+	sensitivity_slider.min_value = 0.0008
+	sensitivity_slider.max_value = 0.006
+	sensitivity_slider.step = 0.0001
+	sensitivity_slider.value = look_sensitivity
+	sensitivity_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sensitivity_slider.tooltip_text = "Lower values are steadier on a trackpad."
+	sensitivity_slider.value_changed.connect(_on_sensitivity_changed)
+	sensitivity_row.add_child(sensitivity_slider)
+	content.add_child(sensitivity_row)
+	sensitivity_value = Label.new()
+	sensitivity_value.add_theme_color_override("font_color", GREEN_SOFT)
+	content.add_child(sensitivity_value)
+	touchpad_toggle = CheckButton.new()
+	touchpad_toggle.text = "TOUCHPAD MODE (SLOW + SMOOTH)"
+	touchpad_toggle.button_pressed = touchpad_mode
+	touchpad_toggle.add_theme_color_override("font_color", GREEN)
+	touchpad_toggle.toggled.connect(_on_touchpad_toggled)
+	content.add_child(touchpad_toggle)
+	var note := Label.new()
+	note.text = "WASD move  •  Mouse/trackpad aim  •  Esc pause"
+	note.add_theme_color_override("font_color", GREEN_SOFT)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(note)
+	_update_settings_readout()
+
+func _load_settings() -> void:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) == OK:
+		look_sensitivity = clamp(float(config.get_value("controls", "look_sensitivity", look_sensitivity)), 0.0008, 0.006)
+		touchpad_mode = bool(config.get_value("controls", "touchpad_mode", false))
+
+func _save_settings() -> void:
+	var config := ConfigFile.new()
+	config.set_value("controls", "look_sensitivity", look_sensitivity)
+	config.set_value("controls", "touchpad_mode", touchpad_mode)
+	config.save(SETTINGS_PATH)
+
+func _on_sensitivity_changed(value: float) -> void:
+	look_sensitivity = value
+	_update_settings_readout()
+	_save_settings()
+
+func _on_touchpad_toggled(enabled: bool) -> void:
+	touchpad_mode = enabled
+	if enabled and sensitivity_slider != null and sensitivity_slider.value > 0.0022:
+		sensitivity_slider.value = 0.0016
+	_update_settings_readout()
+	_save_settings()
+
+func _update_settings_readout() -> void:
+	if sensitivity_value == null:
+		return
+	sensitivity_value.text = "CURRENT: %.4f   %s" % [look_sensitivity, "TRACKPAD CALIBRATED" if touchpad_mode else "MOUSE DEFAULT"]
 
 func _show_title() -> void:
 	hud_labels["center"].text = "NEON MALL\n\nPRESS ENTER TO DEPLOY"
@@ -296,6 +393,7 @@ func _show_title() -> void:
 	hud_labels["stats"].text = ""
 	hud_labels["top_right"].text = ""
 	hud_labels["ammo"].text = ""
+	settings_panel.visible = true
 
 func _start_game() -> void:
 	game_started = true
@@ -311,6 +409,7 @@ func _start_game() -> void:
 	hud_labels["center"].text = "⊕"
 	hud_labels["center"].add_theme_font_size_override("font_size", 34)
 	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
+	settings_panel.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _restart_game() -> void:
@@ -321,9 +420,11 @@ func _toggle_pause() -> void:
 	get_tree().paused = paused
 	if paused:
 		hud_labels["center"].text = "PAUSED\n\nPRESS ESC TO RETURN"
+		settings_panel.visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		hud_labels["center"].text = "⊕"
+		settings_panel.visible = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func player_died() -> void:
