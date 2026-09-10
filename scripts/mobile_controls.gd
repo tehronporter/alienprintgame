@@ -3,6 +3,7 @@ extends Control
 var main: Node
 var left_touch_id := -1
 var right_touch_id := -1
+var fire_touch_id := -1
 var joystick_origin := Vector2.ZERO
 var joystick_vector := Vector2.ZERO
 var fire_rect := Rect2()
@@ -20,13 +21,21 @@ func _ready() -> void:
 	queue_redraw()
 
 func _is_touch_device() -> bool:
-	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+	return DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+
+func _is_portrait() -> bool:
+	return size.y > size.x
 
 func _process(_delta: float) -> void:
 	if main == null:
 		return
 	visible = main.mobile_controls_visible
 	if not visible:
+		return
+	if _is_portrait():
+		main.mobile_move_vector = Vector2.ZERO
+		main.mobile_fire = false
+		queue_redraw()
 		return
 	main.mobile_move_vector = joystick_vector
 	queue_redraw()
@@ -36,17 +45,19 @@ func _notification(what: int) -> void:
 		_update_button_rects()
 
 func _update_button_rects() -> void:
-	var viewport_size := size
-	fire_rect = Rect2(viewport_size.x - 170, viewport_size.y - 185, 120, 120)
-	reload_rect = Rect2(viewport_size.x - 310, viewport_size.y - 142, 92, 92)
+	var viewport_size: Vector2 = size
+	var ui_scale: float = clampf(viewport_size.y / 720.0, 0.72, 1.25)
+	fire_rect = Rect2(viewport_size.x - 170.0 * ui_scale, viewport_size.y - 185.0 * ui_scale, 120.0 * ui_scale, 120.0 * ui_scale)
+	reload_rect = Rect2(viewport_size.x - 310.0 * ui_scale, viewport_size.y - 142.0 * ui_scale, 92.0 * ui_scale, 92.0 * ui_scale)
 
 func _input(event: InputEvent) -> void:
-	if not visible or main == null:
+	if not visible or main == null or _is_portrait():
 		return
 	if event is InputEventScreenTouch:
 		_update_button_rects()
 		if event.pressed:
 			if fire_rect.has_point(event.position):
+				fire_touch_id = event.index
 				main.mobile_fire = true
 			elif reload_rect.has_point(event.position):
 				main.mobile_reload = true
@@ -57,13 +68,14 @@ func _input(event: InputEvent) -> void:
 			elif right_touch_id == -1:
 				right_touch_id = event.index
 		else:
+			if event.index == fire_touch_id:
+				fire_touch_id = -1
+				main.mobile_fire = false
 			if event.index == left_touch_id:
 				left_touch_id = -1
 				joystick_vector = Vector2.ZERO
 			if event.index == right_touch_id:
 				right_touch_id = -1
-			if fire_rect.has_point(event.position):
-				main.mobile_fire = false
 	elif event is InputEventScreenDrag:
 		if event.index == left_touch_id:
 			joystick_vector = (event.position - joystick_origin).limit_length(JOYSTICK_RADIUS) / JOYSTICK_RADIUS
@@ -73,6 +85,13 @@ func _input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	if not visible:
+		return
+	if _is_portrait():
+		draw_rect(Rect2(Vector2.ZERO, size), Color("#010301"), true)
+		var center := size * 0.5
+		draw_arc(center, 130.0, 0, TAU, 40, GREEN, 6.0)
+		draw_line(center + Vector2(-65, 0), center + Vector2(65, 0), GREEN, 6.0)
+		draw_string(ThemeDB.fallback_font, center + Vector2(-300, 220), "ROTATE TO LANDSCAPE", HORIZONTAL_ALIGNMENT_CENTER, 600, 48, GREEN)
 		return
 	_update_button_rects()
 	var center := joystick_origin if left_touch_id != -1 else Vector2(125, size.y - 125)

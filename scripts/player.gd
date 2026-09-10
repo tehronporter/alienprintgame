@@ -13,9 +13,11 @@ var camera: Camera3D
 var weapon: Node3D
 var weapon_body: MeshInstance3D
 var weapon_flash: MeshInstance3D
-var weapon_base_position := Vector3(0.34, -0.32, -1.18)
+var weapon_base_position := Vector3(0.54, -0.5, -1.42)
 var bob_time := 0.0
 var recoil := 0.0
+var damage_kick := 0.0
+var hurt_cooldown := 0.0
 
 const SPEED := 8.0
 const GRAVITY := 20.0
@@ -37,14 +39,25 @@ func _ready() -> void:
 	weapon = Node3D.new()
 	weapon.name = "InkWeapon"
 	weapon.position = weapon_base_position
+	weapon.scale = Vector3(0.72, 0.72, 0.72)
 	weapon.rotation_degrees = Vector3(-7, 0, 0)
 	camera.add_child(weapon)
-	weapon_body = _weapon_part(Vector3(0, 0, 0), Vector3(0.36, 0.25, 0.9), Color("#031108"), 0.4)
+	weapon_body = _weapon_part(Vector3(0, 0, 0), Vector3(0.48, 0.3, 1.05), Color("#020904"), 0.15)
 	weapon_body.rotation_degrees = Vector3(0, 0, -3)
-	_weapon_part(Vector3(0, 0.18, -0.18), Vector3(0.2, 0.16, 0.35), Color("#7dff35"), 2.0)
-	_weapon_part(Vector3(0, -0.18, 0.18), Vector3(0.19, 0.35, 0.22), Color("#071d0b"), 0.6)
-	_weapon_part(Vector3(0, 0.01, -0.63), Vector3(0.13, 0.13, 0.42), Color("#7dff35"), 2.1)
-	_weapon_part(Vector3(0, 0.2, -0.54), Vector3(0.12, 0.1, 0.2), Color("#031108"), 0.3)
+	_weapon_outline(Vector3(0, 0, 0), Vector3(0.52, 0.34, 1.08), Color("#7dff35"), 2.1)
+	_weapon_part(Vector3(0, 0.2, -0.14), Vector3(0.28, 0.12, 0.42), Color("#020904"), 0.15)
+	_weapon_outline(Vector3(0, 0.2, -0.14), Vector3(0.3, 0.14, 0.44), Color("#baff74"), 2.5)
+	_weapon_part(Vector3(0, -0.25, 0.22), Vector3(0.22, 0.45, 0.27), Color("#020904"), 0.15).rotation.x = -0.25
+	_weapon_outline(Vector3(0, -0.25, 0.22), Vector3(0.24, 0.47, 0.29), Color("#7dff35"), 1.8)
+	_weapon_part(Vector3(0, 0.0, -0.72), Vector3(0.18, 0.18, 0.55), Color("#020904"), 0.15)
+	_weapon_outline(Vector3(0, 0.0, -0.72), Vector3(0.2, 0.2, 0.57), Color("#7dff35"), 2.2)
+	for rib in range(4):
+		_weapon_part(Vector3(0, 0.17, -0.43 - float(rib) * 0.14), Vector3(0.34, 0.045, 0.045), Color("#7dff35"), 1.8).rotation.z = float(rib - 2) * 0.025
+	# Visible glove/forearm anchors the first-person pose.
+	_weapon_part(Vector3(0.31, -0.27, 0.16), Vector3(0.3, 0.28, 0.48), Color("#031108"), 0.2).rotation.z = -0.32
+	_weapon_outline(Vector3(0.31, -0.27, 0.16), Vector3(0.32, 0.3, 0.5), Color("#164d20"), 1.3)
+	_weapon_part(Vector3(-0.3, -0.18, -0.42), Vector3(0.25, 0.22, 0.42), Color("#031108"), 0.2).rotation.z = 0.22
+	_weapon_outline(Vector3(-0.3, -0.18, -0.42), Vector3(0.27, 0.24, 0.44), Color("#164d20"), 1.3)
 	weapon_flash = _weapon_part(Vector3(0, 0.01, -0.92), Vector3(0.34, 0.24, 0.12), Color("#baff74"), 5.0)
 	weapon_flash.visible = false
 
@@ -54,6 +67,8 @@ func _material(color: Color, energy: float) -> StandardMaterial3D:
 	mat.emission_enabled = true
 	mat.emission = color
 	mat.emission_energy_multiplier = energy
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return mat
 
 func reset_player() -> void:
@@ -70,6 +85,8 @@ func reset_player() -> void:
 	camera.rotation = Vector3.ZERO
 	weapon.position = weapon_base_position
 	recoil = 0.0
+	damage_kick = 0.0
+	hurt_cooldown = 0.0
 
 func _weapon_part(offset: Vector3, size: Vector3, color: Color, energy: float) -> MeshInstance3D:
 	var part := MeshInstance3D.new()
@@ -80,6 +97,18 @@ func _weapon_part(offset: Vector3, size: Vector3, color: Color, energy: float) -
 	part.material_override = _material(color, energy)
 	weapon.add_child(part)
 	return part
+
+func _weapon_outline(offset: Vector3, size: Vector3, color: Color, energy: float) -> void:
+	var width := 0.018
+	for y in [-size.y * 0.5, size.y * 0.5]:
+		for z in [-size.z * 0.5, size.z * 0.5]:
+			_weapon_part(offset + Vector3(0, y, z), Vector3(size.x, width, width), color, energy)
+	for x in [-size.x * 0.5, size.x * 0.5]:
+		for z in [-size.z * 0.5, size.z * 0.5]:
+			_weapon_part(offset + Vector3(x, 0, z), Vector3(width, size.y, width), color, energy)
+	for x in [-size.x * 0.5, size.x * 0.5]:
+		for y in [-size.y * 0.5, size.y * 0.5]:
+			_weapon_part(offset + Vector3(x, y, 0), Vector3(width, width, size.z), color, energy)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and main.game_started and not main.game_over and not main.paused:
@@ -98,6 +127,10 @@ func _physics_process(delta: float) -> void:
 		fire_cooldown -= delta
 	if recoil > 0.0:
 		recoil = max(0.0, recoil - delta * 7.0)
+	if damage_kick > 0.0:
+		damage_kick = max(0.0, damage_kick - delta * 5.0)
+	if hurt_cooldown > 0.0:
+		hurt_cooldown = max(0.0, hurt_cooldown - delta)
 	bob_time += delta * (4.0 if velocity.length() > 0.2 else 1.5)
 	if reloading:
 		reload_timer -= delta
@@ -125,8 +158,9 @@ func _physics_process(delta: float) -> void:
 	global_position.z = clamp(global_position.z, -48.0, 48.0)
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.2
 	var bob := Vector3(sin(bob_time) * 0.018, abs(cos(bob_time)) * (0.016 if moving else 0.004), 0)
-	weapon.position = weapon_base_position + bob + Vector3(0, 0, recoil * 0.12)
-	weapon.rotation_degrees.x = -7.0 + recoil * 8.0
+	weapon.position = weapon_base_position + bob + Vector3(damage_kick * 0.04, -damage_kick * 0.025, recoil * 0.12)
+	weapon.rotation_degrees.x = -7.0 + recoil * 8.0 + damage_kick * 3.0
+	camera.position = Vector3(sin(bob_time * 11.0) * damage_kick * 0.015, 1.55 + cos(bob_time * 9.0) * damage_kick * 0.012, 0)
 	if Input.is_action_pressed("fire"):
 		_fire()
 	if main.mobile_fire:
@@ -173,8 +207,12 @@ func _finish_reload() -> void:
 	reloading = false
 
 func take_damage(amount: int) -> void:
-	if main.game_over:
+	if main.game_over or hurt_cooldown > 0.0:
 		return
 	health = max(0, health - amount)
+	hurt_cooldown = 0.62
+	damage_kick = 1.0
+	if main.has_method("player_damaged"):
+		main.player_damaged()
 	if health <= 0:
 		main.player_died()

@@ -22,13 +22,15 @@ Then press Play. The project is configured for the Compatibility renderer and We
 - `Enter` deploy from the title screen
 - Click after death to redeploy
 
+Combat begins with seven enemies already active. Kills build a short streak multiplier; every eight kills restores ammunition and every twelve restores health. Enemy health, speed, scale, active cap, bruiser frequency, and elite events increase with survival time.
+
 ## Mac touchpad controls
 
 The title screen and pause screen include **Control Calibration**. Enable **Touchpad Mode** for a slower, steadier look multiplier, then tune the sensitivity slider until camera movement feels comfortable. The setting is saved per computer in Godot's `user://` preferences and does not affect other players or devices.
 
 ## Mobile web controls
 
-Mobile builds request landscape orientation and use an on-screen left joystick for movement, right-side drag aiming, plus Fire and Reload buttons. The viewport uses an expanding landscape layout so the controls remain usable across phone and tablet aspect ratios. `F2` toggles the touch-control overlay during desktop testing.
+Mobile builds request landscape orientation and use an on-screen left joystick for movement, right-side drag aiming, plus Fire and Reload buttons. Portrait mode displays a rotate-device gate. Controls scale to phone/tablet height, respect browser safe areas, and cap active enemies at 28 for Web performance. `F2` toggles the touch-control overlay during desktop testing.
 
 ## Blender source kit
 
@@ -38,4 +40,14 @@ When Blender is available:
 blender --background --python tools/generate_neon_mall.py
 ```
 
-This creates `neon_mall_source.blend` and `neon_mall_kit.glb` in the current working directory. The Godot prototype intentionally remains procedural so gameplay can be tested without waiting for the authored asset pass.
+This creates `neon_mall_source.blend` and `neon_mall_kit.glb` in the repository root. The source kit includes the Mall blockout, Capitol, Washington Monument, props, four alien scales, and first-person rifle. Godot remains procedural so the playable build and editable Blender source stay independently testable.
+
+## Verification
+
+```sh
+godot --headless --path . --script tests/combat_smoke.gd
+godot --headless --path . --export-release Web build/web/index.html
+python3 -m http.server 8060 -d build/web
+```
+
+The export excludes the 4K reference set and `.blend` source from the runtime package; the current PCK is under 1 MB.

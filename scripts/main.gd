@@ -4,6 +4,7 @@ const Player = preload("res://scripts/player.gd")
 const Enemy = preload("res://scripts/enemy.gd")
 const SpawnDirector = preload("res://scripts/spawn_director.gd")
 const MobileControls = preload("res://scripts/mobile_controls.gd")
+const InkHUD = preload("res://scripts/ink_hud.gd")
 
 const GREEN := Color("#7dff35")
 const GREEN_SOFT := Color("#164d20")
@@ -38,6 +39,9 @@ var mobile_move_vector := Vector2.ZERO
 var mobile_look_delta := Vector2.ZERO
 var mobile_fire := false
 var mobile_reload := false
+var ink_hud: Control
+var streak := 0
+var streak_timer := 0.0
 const SETTINGS_PATH := "user://neon_mall_settings.cfg"
 
 func _ready() -> void:
@@ -51,9 +55,19 @@ func _ready() -> void:
 	_show_title()
 
 func _process(delta: float) -> void:
+	if mobile_fire and not game_started:
+		mobile_fire = false
+		_start_game()
+	elif mobile_fire and game_over:
+		mobile_fire = false
+		_restart_game()
 	if not game_started or game_over or paused:
 		return
 	survival_time += delta
+	if streak_timer > 0.0:
+		streak_timer -= delta
+		if streak_timer <= 0.0:
+			streak = 0
 	_update_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -82,7 +96,7 @@ func _build_world() -> void:
 	_make_box("ReflectingPool", Vector3(0, -0.03, -5), Vector3(8, 0.12, 82), Color("#020804"), 0.24)
 	_make_outline_box(Vector3(0, 0.06, -5), Vector3(8.4, 0.2, 82), GREEN, 1.7)
 	_make_capitol(Vector3(0, 0, -45))
-	_make_landmark("WashingtonMonument", Vector3(0, 0, 38), Vector3(4, 26, 4), 4)
+	_make_washington_monument(Vector3(0, 0, 38))
 	_make_path_lines()
 	_make_cover()
 	_make_lamps()
@@ -90,6 +104,8 @@ func _build_world() -> void:
 	_make_flags()
 	_make_ground_doodles()
 	_make_map_set_dressing()
+	_make_pool_ink()
+	_make_sky_scratches()
 	_make_ufo(Vector3(-24, 17, -22), 1.2)
 	_make_ufo(Vector3(24, 20, 4), 0.8)
 
@@ -100,6 +116,8 @@ func _make_material(color: Color, emission_energy := 1.0) -> StandardMaterial3D:
 	material.emission = color
 	material.emission_energy_multiplier = emission_energy
 	material.roughness = 1.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
 func _make_box(label: String, pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> MeshInstance3D:
@@ -131,6 +149,27 @@ func _make_visual_box(label: String, pos: Vector3, size: Vector3, color: Color, 
 	mesh_node.material_override = _make_material(color, energy)
 	arena_root.add_child(mesh_node)
 	return mesh_node
+
+func _make_visual_sphere(label: String, pos: Vector3, radius: float, squash: Vector3, color: Color, energy := 1.0) -> MeshInstance3D:
+	var node := MeshInstance3D.new()
+	node.name = label
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = radius * 2.0
+	mesh.radial_segments = 8
+	mesh.rings = 4
+	node.mesh = mesh
+	node.position = pos
+	node.scale = squash
+	node.material_override = _make_material(color, energy)
+	arena_root.add_child(node)
+	return node
+
+func _make_stroke(label: String, from: Vector3, to: Vector3, width: float, color: Color, energy := 1.0) -> MeshInstance3D:
+	var midpoint := (from + to) * 0.5
+	var stroke := _make_visual_box(label, midpoint, Vector3(width, width, from.distance_to(to)), color, energy)
+	stroke.look_at(to, Vector3.UP)
+	return stroke
 
 func _make_outline_box(pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> void:
 	var t := 0.08
@@ -175,12 +214,50 @@ func _make_capitol(pos: Vector3) -> void:
 	arena_root.add_child(dome)
 	_make_outline_box(pos + Vector3(0, 8.25, 0), Vector3(10.4, 0.18, 4.5), GREEN, 1.8)
 	_make_visual_box("CapitolSpire", pos + Vector3(0, 11.3, 0), Vector3(0.28, 4.0, 0.28), GREEN, 2.0)
+	# Wings, windows, dome ribs, and uneven roof strokes are the landmark's visual signature.
+	for side in [-1.0, 1.0]:
+		_make_outline_box(pos + Vector3(side * 14.0, 2.65, 0.5), Vector3(6.0, 5.3, 6.0), GREEN, 1.2)
+		_make_visual_box("CapitolWingRoof", pos + Vector3(side * 14.0, 5.55, -0.2), Vector3(7.0, 0.18, 6.8), GREEN, 1.6).rotation.z = side * 0.018
+		for window in range(4):
+			_make_outline_box(pos + Vector3(side * (11.7 + float(window) * 1.45), 3.0, -2.65), Vector3(0.65, 1.25, 0.1), GREEN_SOFT, 0.9)
+	for rib in range(7):
+		var x := -4.3 + float(rib) * 1.43
+		_make_stroke("DomeRib", pos + Vector3(x, 7.15, -2.2), pos + Vector3(x * 0.25, 10.25, -1.15), 0.09, GREEN, 1.7)
+	for step in range(5):
+		_make_visual_box("CapitolStair", pos + Vector3(0, 0.12 + float(step) * 0.12, -5.6 + float(step) * 0.35), Vector3(29.0 - float(step) * 1.6, 0.08, 0.18), GREEN, 1.35)
+
+func _make_washington_monument(pos: Vector3) -> void:
+	var shaft := MeshInstance3D.new()
+	shaft.name = "WashingtonMonumentShaft"
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = 0.72
+	mesh.bottom_radius = 2.1
+	mesh.height = 24.0
+	mesh.radial_segments = 4
+	shaft.mesh = mesh
+	shaft.position = pos + Vector3(0, 12.2, 0)
+	shaft.rotation.y = PI * 0.25
+	shaft.material_override = _make_material(GREEN_DARK, 0.08)
+	arena_root.add_child(shaft)
+	for side in [-1.0, 1.0]:
+		_make_stroke("MonumentEdge", pos + Vector3(side * 2.1, 0.2, -0.1), pos + Vector3(side * 0.7, 24.3, -0.1), 0.14, GREEN, 2.0)
+		_make_stroke("MonumentEdgeBack", pos + Vector3(0.0, 0.2, side * 2.1), pos + Vector3(0.0, 24.3, side * 0.7), 0.11, GREEN_SOFT, 1.2)
+	for tier in range(8):
+		var y: float = 2.0 + float(tier) * 2.75
+		var half_width: float = lerpf(2.0, 0.78, y / 24.0)
+		_make_visual_box("MonumentCourse", pos + Vector3(0, y, -half_width), Vector3(half_width * 1.9, 0.06, 0.06), GREEN_SOFT, 0.9)
+	_make_stroke("MonumentPointA", pos + Vector3(-0.7, 24.2, 0), pos + Vector3(0, 27.0, 0), 0.13, GREEN, 2.2)
+	_make_stroke("MonumentPointB", pos + Vector3(0.7, 24.2, 0), pos + Vector3(0, 27.0, 0), 0.13, GREEN, 2.2)
+	for i in range(18):
+		var angle := float(i) / 18.0 * TAU
+		var radius := 6.2
+		_make_visual_box("MonumentFlagPole", pos + Vector3(cos(angle) * radius, 1.6, sin(angle) * radius), Vector3(0.06, 3.2, 0.06), GREEN_SOFT, 0.9)
 
 func _make_path_lines() -> void:
 	for x in [-18.0, -9.0, 9.0, 18.0]:
-		_make_box("MallPath", Vector3(x, 0.02, 0), Vector3(0.18, 0.05, 92), GREEN, 1.5)
+		_make_visual_box("MallPath", Vector3(x, 0.02, 0), Vector3(0.12, 0.04, 92), GREEN, 1.25)
 	for z in [-28.0, -12.0, 12.0, 28.0]:
-		_make_box("CrossPath", Vector3(0, 0.03, z), Vector3(72, 0.05, 0.18), GREEN, 1.5)
+		_make_visual_box("CrossPath", Vector3(0, 0.03, z), Vector3(72, 0.04, 0.12), GREEN, 1.25)
 
 func _make_cover() -> void:
 	for i in range(18):
@@ -209,6 +286,12 @@ func _make_tree_line() -> void:
 			var branch_pos := Vector3(x + (float(branch) - 1.5) * 1.2, height + 1.1 + float(branch % 2) * 0.55, z)
 			var branch_piece := _make_visual_box("TreeSketch", branch_pos, Vector3(2.8, 0.16, 0.16), GREEN, 1.0)
 			branch_piece.rotation.z = (float(branch) - 1.5) * 0.18
+		for clump in range(3):
+			var canopy_pos := Vector3(x + (float(clump) - 1.0) * 1.7, height + 1.7 + float(clump % 2) * 0.7, z + float(clump - 1) * 0.35)
+			_make_visual_sphere("TreeCanopy", canopy_pos, 1.65, Vector3(1.4, 0.85, 0.75), GREEN_DARK, 0.08)
+			for scratch in range(3):
+				var y_offset := -0.55 + float(scratch) * 0.55
+				_make_stroke("LeafScratch", canopy_pos + Vector3(-1.25, y_offset, -0.7), canopy_pos + Vector3(1.2, y_offset + 0.24, -0.7), 0.08, GREEN_SOFT, 0.95)
 
 func _make_flags() -> void:
 	for x in [-19.0, 19.0]:
@@ -246,6 +329,9 @@ func _make_map_set_dressing() -> void:
 		_make_visual_box("MallBarrier", Vector3(-7.0, 0.7, z), Vector3(4.0, 1.4, 0.25), GREEN_DARK, 0.16)
 		_make_outline_box(Vector3(-7.0, 0.7, z), Vector3(4.1, 1.45, 0.3), GREEN, 1.0)
 	_make_subway_entrance(Vector3(31.0, 0, 1.0))
+	_make_hotdog_cart(Vector3(-15.0, 0, 15.0))
+	_make_wrecked_car(Vector3(18.0, 0, -18.0), -0.28)
+	_make_wrecked_car(Vector3(-22.0, 0, 27.0), 0.52)
 	_make_zone_marker("CAPITOL APPROACH", Vector3(0, 0.04, -31.0), 1.0)
 	_make_zone_marker("REFLECTING POOL", Vector3(0, 0.04, 0.0), 0.82)
 	_make_zone_marker("MONUMENT LINE", Vector3(0, 0.04, 29.0), 0.72)
@@ -259,6 +345,40 @@ func _make_subway_entrance(pos: Vector3) -> void:
 func _make_zone_marker(_text: String, pos: Vector3, scale_factor: float) -> void:
 	var marker := _make_visual_box("ZoneMarker", pos + Vector3(0, 0.06, 0), Vector3(5.5, 0.04, 0.08) * scale_factor, GREEN_SOFT, 0.7)
 	marker.rotation.y = 0.05
+
+func _make_hotdog_cart(pos: Vector3) -> void:
+	_make_outline_box(pos + Vector3(0, 1.0, 0), Vector3(3.2, 1.7, 1.7), GREEN, 1.25)
+	_make_visual_box("CartCounter", pos + Vector3(0, 1.85, 0), Vector3(3.6, 0.13, 2.0), GREEN, 1.7)
+	for side in [-1.0, 1.0]:
+		_make_visual_sphere("CartWheel", pos + Vector3(side * 1.15, 0.45, -0.92), 0.42, Vector3(1, 1, 0.35), GREEN_DARK, 0.1)
+		_make_outline_box(pos + Vector3(side * 1.15, 0.45, -0.96), Vector3(0.76, 0.76, 0.08), GREEN_SOFT, 1.0)
+	_make_visual_box("CartUmbrellaPole", pos + Vector3(0, 3.0, 0), Vector3(0.1, 2.4, 0.1), GREEN, 1.4)
+	for side in [-1.0, 1.0]:
+		_make_stroke("CartUmbrella", pos + Vector3(0, 4.15, 0), pos + Vector3(side * 2.1, 3.55, 0), 0.1, GREEN, 1.7)
+
+func _make_wrecked_car(pos: Vector3, angle: float) -> void:
+	var body := _make_visual_box("WreckedCar", pos + Vector3(0, 0.75, 0), Vector3(4.6, 1.0, 2.1), GREEN_DARK, 0.1)
+	body.rotation.y = angle
+	_make_outline_box(pos + Vector3(0, 0.75, 0), Vector3(4.8, 1.15, 2.25), GREEN, 1.15)
+	_make_outline_box(pos + Vector3(0.4, 1.55, 0), Vector3(2.4, 0.75, 1.85), GREEN_SOFT, 0.9)
+	for side in [-1.0, 1.0]:
+		for end in [-1.0, 1.0]:
+			_make_visual_sphere("CarWheel", pos + Vector3(end * 1.55, 0.3, side * 1.0), 0.42, Vector3(1, 1, 0.38), GREEN_DARK, 0.08)
+	_make_stroke("CrackedHood", pos + Vector3(-1.9, 1.25, -1.14), pos + Vector3(-0.7, 0.92, -1.14), 0.08, GREEN, 1.4)
+
+func _make_pool_ink() -> void:
+	for i in range(34):
+		var z := -43.0 + float(i) * 2.45
+		var x := -2.8 + fmod(float(i * 7), 5.6)
+		var ripple := _make_visual_box("PoolRipple", Vector3(x, 0.045, z), Vector3(1.0 + float(i % 4) * 0.7, 0.025, 0.05), GREEN_SOFT, 0.75)
+		ripple.rotation.y = sin(float(i) * 1.7) * 0.18
+
+func _make_sky_scratches() -> void:
+	for i in range(16):
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := side * (10.0 + float(i % 5) * 6.0)
+		var z := -36.0 + float(i % 8) * 10.0
+		_make_stroke("FallingInk", Vector3(x, 13.0 + float(i % 3) * 2.0, z), Vector3(x + side * 0.8, 15.5 + float(i % 3), z), 0.05, GREEN_SOFT, 0.7)
 
 func _build_player() -> void:
 	player = Player.new()
@@ -296,6 +416,10 @@ func _build_hud() -> void:
 	overlay_material.shader = overlay_shader
 	overlay.material = overlay_material
 	root.add_child(overlay)
+	ink_hud = InkHUD.new()
+	ink_hud.name = "InkHUD"
+	ink_hud.main = self
+	root.add_child(ink_hud)
 	for spec in [["stats", Vector2(28, 22), 18], ["top_right", Vector2(-32, 22), 18], ["objective", Vector2(0, 24), 20], ["ammo", Vector2(-220, -70), 22], ["hint", Vector2(0, -48), 18], ["center", Vector2(0, -10), 34]]:
 		var label := Label.new()
 		label.name = spec[0]
@@ -304,7 +428,12 @@ func _build_hud() -> void:
 		label.add_theme_constant_override("shadow_offset_x", 2)
 		label.add_theme_constant_override("shadow_offset_y", 2)
 		label.add_theme_font_size_override("font_size", spec[2])
-		if spec[0] == "objective" or spec[0] == "center":
+		if spec[0] == "objective":
+			label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+			label.offset_top = 54
+			label.offset_bottom = 84
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		elif spec[0] == "center":
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			label.set_anchors_preset(Control.PRESET_CENTER)
 			label.position += spec[1]
@@ -312,8 +441,9 @@ func _build_hud() -> void:
 			label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 			label.offset_left = -360
 			label.offset_right = -20
-			label.offset_top = -80
-			label.offset_bottom = -30
+			label.offset_top = -138
+			label.offset_bottom = -105
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		elif spec[0] == "top_right":
 			label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 			label.offset_left = -300
@@ -335,7 +465,7 @@ func _build_hud() -> void:
 	mobile_controls.main = self
 	root.add_child(mobile_controls)
 	crosshair = hud_labels["center"]
-	crosshair.text = "⊕"
+	crosshair.text = ""
 
 func _build_settings_panel(root: Control) -> void:
 	settings_panel = PanelContainer.new()
@@ -401,11 +531,14 @@ func _load_settings() -> void:
 	if config.load(SETTINGS_PATH) == OK:
 		look_sensitivity = clamp(float(config.get_value("controls", "look_sensitivity", look_sensitivity)), 0.0008, 0.006)
 		touchpad_mode = bool(config.get_value("controls", "touchpad_mode", false))
+		high_score = int(config.get_value("progress", "high_score", 0))
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
 	config.set_value("controls", "look_sensitivity", look_sensitivity)
 	config.set_value("controls", "touchpad_mode", touchpad_mode)
+	config.set_value("progress", "high_score", high_score)
 	config.save(SETTINGS_PATH)
 
 func _on_sensitivity_changed(value: float) -> void:
@@ -444,9 +577,11 @@ func _start_game() -> void:
 	kills = 0
 	shots = 0
 	hits = 0
+	streak = 0
+	streak_timer = 0.0
 	player.reset_player()
 	director.reset_director()
-	hud_labels["center"].text = "⊕"
+	hud_labels["center"].text = ""
 	hud_labels["center"].add_theme_font_size_override("font_size", 34)
 	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
 	settings_panel.visible = false
@@ -463,13 +598,14 @@ func _toggle_pause() -> void:
 		settings_panel.visible = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		hud_labels["center"].text = "⊕"
+		hud_labels["center"].text = ""
 		settings_panel.visible = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func player_died() -> void:
 	game_over = true
 	high_score = max(high_score, score)
+	_save_settings()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	hud_labels["center"].text = "YOU GOT SWARMED\n\nSCORE %06d\nHIGH SCORE %06d\n\nCLICK TO REDEPLOY" % [score, high_score]
 
@@ -481,7 +617,51 @@ func get_free_enemy() -> Node:
 
 func add_kill(enemy_score: int) -> void:
 	kills += 1
-	score += enemy_score + int(survival_time * 2.0)
+	streak = streak + 1 if streak_timer > 0.0 else 1
+	streak_timer = 3.25
+	score += enemy_score + int(survival_time * 2.0) + max(0, streak - 1) * 25
+	if kills % 8 == 0:
+		player.reserve_ammo = min(240, player.reserve_ammo + 18)
+		hud_labels["hint"].text = "+18 INK CELLS // STREAK SUPPLY"
+	if kills % 12 == 0:
+		player.health = min(100, player.health + 15)
+
+func register_hit(_world_position: Vector3) -> void:
+	if ink_hud != null:
+		ink_hud.show_hit()
+
+func player_damaged() -> void:
+	if ink_hud != null:
+		ink_hud.show_damage()
+
+func elite_spawned() -> void:
+	if ink_hud != null:
+		ink_hud.show_elite()
+	hud_labels["objective"].text = "WARNING // ELITE MASS INBOUND"
+
+func spawn_ink_burst(world_position: Vector3, burst_scale: float) -> void:
+	var burst := Node3D.new()
+	burst.name = "InkDeathBurst"
+	add_child(burst)
+	burst.global_position = world_position
+	for i in range(10):
+		var shard := MeshInstance3D.new()
+		var shard_mesh := BoxMesh.new()
+		var shard_scale: float = minf(1.8, burst_scale)
+		shard_mesh.size = Vector3(0.07, 0.07, 0.8 + float(i % 3) * 0.28) * shard_scale
+		shard.mesh = shard_mesh
+		shard.material_override = _make_material(GREEN, 3.2)
+		var angle := float(i) / 10.0 * TAU
+		shard.rotation = Vector3(angle * 0.31, angle, angle * 0.17)
+		burst.add_child(shard)
+		var target: Vector3 = Vector3(cos(angle) * 2.0, sin(angle * 2.0) * 1.4, sin(angle) * 2.0) * minf(1.5, burst_scale)
+		var tween := create_tween().set_parallel(true)
+		tween.tween_property(shard, "position", target, 0.32)
+		tween.tween_property(shard, "scale", Vector3.ZERO, 0.38)
+	get_tree().create_timer(0.42).timeout.connect(func():
+		if is_instance_valid(burst):
+			burst.queue_free()
+	)
 
 func _update_hud() -> void:
 	if not is_instance_valid(player):
@@ -492,6 +672,6 @@ func _update_hud() -> void:
 		accuracy = int(round(float(hits) / float(shots) * 100.0))
 	hud_labels["stats"].text = "SURVIVAL %02d:%02d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, kills, accuracy, tier]
 	hud_labels["top_right"].text = "SCORE: %06d" % score
-	hud_labels["ammo"].text = "HP %03d    AMMO %02d / %03d" % [player.health, player.ammo, player.reserve_ammo]
+	hud_labels["ammo"].text = "HP %03d    AMMO %02d / %03d    STREAK x%02d" % [player.health, player.ammo, player.reserve_ammo, streak]
 	if player.reloading:
 		hud_labels["ammo"].text += "    RELOADING"
