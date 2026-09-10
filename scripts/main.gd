@@ -5,7 +5,8 @@ const Enemy = preload("res://scripts/enemy.gd")
 const SpawnDirector = preload("res://scripts/spawn_director.gd")
 
 const GREEN := Color("#7dff35")
-const GREEN_SOFT := Color("#2aa83d")
+const GREEN_SOFT := Color("#164d20")
+const GREEN_DARK := Color("#041108")
 const BLACK := Color("#010301")
 const POOL_SIZE := 48
 
@@ -63,13 +64,19 @@ func _build_world() -> void:
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.environment = environment
 	add_child(env)
-	_make_box("MallGround", Vector3(0, -0.6, 0), Vector3(110, 1, 110), GREEN_SOFT, 0.03)
-	_make_box("ReflectingPool", Vector3(0, -0.03, -5), Vector3(8, 0.12, 82), Color("#07130b"), 0.18)
-	_make_landmark("LincolnMemorial", Vector3(0, 0, -47), Vector3(13, 9, 5), 12)
+	_make_box("MallGround", Vector3(0, -0.6, 0), Vector3(110, 1, 110), GREEN_DARK, 0.03)
+	_make_box("ReflectingPool", Vector3(0, -0.03, -5), Vector3(8, 0.12, 82), Color("#020804"), 0.24)
+	_make_outline_box(Vector3(0, 0.06, -5), Vector3(8.4, 0.2, 82), GREEN, 1.7)
+	_make_capitol(Vector3(0, 0, -45))
 	_make_landmark("WashingtonMonument", Vector3(0, 0, 38), Vector3(4, 26, 4), 4)
 	_make_path_lines()
 	_make_cover()
 	_make_lamps()
+	_make_tree_line()
+	_make_flags()
+	_make_ground_doodles()
+	_make_ufo(Vector3(-24, 17, -22), 1.2)
+	_make_ufo(Vector3(24, 20, 4), 0.8)
 
 func _make_material(color: Color, emission_energy := 1.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -99,14 +106,60 @@ func _make_box(label: String, pos: Vector3, size: Vector3, color: Color, energy 
 	arena_root.add_child(body)
 	return mesh_node
 
+func _make_visual_box(label: String, pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> MeshInstance3D:
+	var mesh_node := MeshInstance3D.new()
+	mesh_node.name = label
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	mesh_node.mesh = mesh
+	mesh_node.position = pos
+	mesh_node.material_override = _make_material(color, energy)
+	arena_root.add_child(mesh_node)
+	return mesh_node
+
+func _make_outline_box(pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> void:
+	var t := 0.08
+	_make_visual_box("InkTop", pos + Vector3(0, size.y * 0.5, 0), Vector3(size.x, t, t), color, energy)
+	_make_visual_box("InkBottom", pos - Vector3(0, size.y * 0.5, 0), Vector3(size.x, t, t), color, energy)
+	_make_visual_box("InkLeft", pos + Vector3(-size.x * 0.5, 0, 0), Vector3(t, size.y, t), color, energy)
+	_make_visual_box("InkRight", pos + Vector3(size.x * 0.5, 0, 0), Vector3(t, size.y, t), color, energy)
+	_make_visual_box("InkFrontTop", pos + Vector3(0, size.y * 0.5, -size.z * 0.5), Vector3(size.x, t, t), color, energy)
+	_make_visual_box("InkBackTop", pos + Vector3(0, size.y * 0.5, size.z * 0.5), Vector3(size.x, t, t), color, energy)
+	_make_visual_box("InkFrontBottom", pos - Vector3(0, size.y * 0.5, size.z * 0.5), Vector3(size.x, t, t), color, energy)
+	_make_visual_box("InkBackBottom", pos - Vector3(0, size.y * 0.5, -size.z * 0.5), Vector3(size.x, t, t), color, energy)
+	for x in [-size.x * 0.5, size.x * 0.5]:
+		for z in [-size.z * 0.5, size.z * 0.5]:
+			_make_visual_box("InkCorner", pos + Vector3(x, 0, z), Vector3(t, size.y, t), color, energy)
+
 func _make_landmark(label: String, pos: Vector3, size: Vector3, columns: int) -> void:
-	_make_box(label + "Core", pos, size, GREEN_SOFT, 0.08)
+	_make_box(label + "Core", pos, size, GREEN_DARK, 0.08)
+	_make_outline_box(pos, size, GREEN, 1.15)
 	var line_color := GREEN
 	for i in range(columns):
 		var x: float = pos.x - size.x * 0.42 + (float(i) / float(max(1, columns - 1))) * size.x * 0.84
 		_make_box(label + "Column" + str(i), Vector3(x, pos.y + size.y * 0.12, pos.z - size.z * 0.55), Vector3(0.38, size.y * 0.72, 0.28), line_color, 1.8)
 	_make_box(label + "TopLine", Vector3(pos.x, pos.y + size.y * 0.52, pos.z - size.z * 0.58), Vector3(size.x * 1.08, 0.32, 0.32), line_color, 2.0)
 	_make_box(label + "Step", Vector3(pos.x, 0.25, pos.z + size.z * 0.25), Vector3(size.x * 1.4, 0.35, size.z * 0.8), GREEN_SOFT, 0.2)
+
+func _make_capitol(pos: Vector3) -> void:
+	_make_box("CapitolBody", pos + Vector3(0, 3.0, 0), Vector3(22, 6, 7), GREEN_DARK, 0.08)
+	_make_outline_box(pos + Vector3(0, 3.0, 0), Vector3(22, 6, 7), GREEN, 1.4)
+	for i in range(15):
+		var x: float = -9.0 + float(i) * 1.28
+		_make_visual_box("CapitolColumn", pos + Vector3(x, 3.9, -3.8), Vector3(0.32, 4.8, 0.22), GREEN, 1.8)
+	_make_visual_box("CapitolSteps", pos + Vector3(0, 0.35, -4.4), Vector3(27, 0.35, 2.4), GREEN, 1.7)
+	_make_visual_box("CapitolDomeBase", pos + Vector3(0, 7.1, 0), Vector3(10, 0.42, 4.2), GREEN, 1.8)
+	var dome := MeshInstance3D.new()
+	var dome_mesh := SphereMesh.new()
+	dome_mesh.radius = 5.0
+	dome_mesh.height = 4.5
+	dome.mesh = dome_mesh
+	dome.scale = Vector3(1.0, 0.48, 0.65)
+	dome.position = pos + Vector3(0, 8.3, 0)
+	dome.material_override = _make_material(GREEN_DARK, 0.08)
+	arena_root.add_child(dome)
+	_make_outline_box(pos + Vector3(0, 8.25, 0), Vector3(10.4, 0.18, 4.5), GREEN, 1.8)
+	_make_visual_box("CapitolSpire", pos + Vector3(0, 11.3, 0), Vector3(0.28, 4.0, 0.28), GREEN, 2.0)
 
 func _make_path_lines() -> void:
 	for x in [-18.0, -9.0, 9.0, 18.0]:
@@ -119,13 +172,49 @@ func _make_cover() -> void:
 		var angle := float(i) * 2.399
 		var radius := 15.0 + fmod(float(i * 13), 25.0)
 		var pos := Vector3(cos(angle) * radius, 1.0, sin(angle) * radius)
-		_make_box("Wreckage", pos, Vector3(2.8, 1.8, 1.5), GREEN_SOFT, 0.12).rotation.y = angle
+		var wreckage := _make_box("Wreckage", pos, Vector3(2.8, 1.8, 1.5), GREEN_DARK, 0.12)
+		wreckage.rotation.y = angle
+		_make_outline_box(pos, Vector3(2.9, 1.9, 1.6), GREEN_SOFT, 0.8)
 
 func _make_lamps() -> void:
 	for x in [-31.0, -24.0, 24.0, 31.0]:
 		for z in [-36.0, -18.0, 18.0, 36.0]:
 			_make_box("LampPost", Vector3(x, 3.0, z), Vector3(0.18, 6.0, 0.18), GREEN, 1.8)
 			_make_box("LampHead", Vector3(x, 6.1, z), Vector3(0.75, 0.18, 0.75), GREEN, 2.4)
+			_make_visual_box("LampGlow", Vector3(x, 6.25, z), Vector3(1.0, 0.05, 1.0), GREEN, 2.8)
+
+func _make_tree_line() -> void:
+	for i in range(30):
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var z := -42.0 + float(i % 15) * 5.8
+		var x := side * (25.0 + float(i % 3) * 3.5)
+		var height := 3.0 + float(i % 4) * 0.8
+		_make_visual_box("TreeTrunk", Vector3(x, height * 0.5, z), Vector3(0.28, height, 0.28), GREEN_SOFT, 0.5)
+		for branch in range(4):
+			var branch_pos := Vector3(x + (float(branch) - 1.5) * 1.2, height + 1.1 + float(branch % 2) * 0.55, z)
+			var branch_piece := _make_visual_box("TreeSketch", branch_pos, Vector3(2.8, 0.16, 0.16), GREEN, 1.0)
+			branch_piece.rotation.z = (float(branch) - 1.5) * 0.18
+
+func _make_flags() -> void:
+	for x in [-19.0, 19.0]:
+		for z in [-34.0, -18.0, -2.0, 14.0, 30.0]:
+			_make_visual_box("FlagPole", Vector3(x, 3.2, z), Vector3(0.1, 6.4, 0.1), GREEN, 1.2)
+			var flag := _make_visual_box("Flag", Vector3(x + (0.9 if x < 0 else -0.9), 5.8, z), Vector3(1.7, 0.8, 0.08), GREEN, 1.4)
+			flag.rotation.y = 0.08 if x < 0 else -0.08
+
+func _make_ground_doodles() -> void:
+	for i in range(45):
+		var x := -45.0 + fmod(float(i * 19), 90.0)
+		var z := -45.0 + fmod(float(i * 31), 90.0)
+		var length := 0.5 + float(i % 4) * 0.35
+		var doodle := _make_visual_box("GroundInk", Vector3(x, 0.04, z), Vector3(length, 0.035, 0.06), GREEN_SOFT, 0.8)
+		doodle.rotation.y = float(i % 7) * 0.37
+
+func _make_ufo(pos: Vector3, scale_factor: float) -> void:
+	var saucer := _make_visual_box("UFO", pos, Vector3(4.0, 0.18, 1.6) * scale_factor, GREEN, 1.8)
+	var dome := _make_visual_box("UFODome", pos + Vector3(0, 0.38 * scale_factor, 0), Vector3(1.25, 0.35, 0.75) * scale_factor, GREEN, 1.5)
+	for i in range(4):
+		_make_visual_box("UFOBeam", pos + Vector3((float(i) - 1.5) * 0.45, -1.1 * scale_factor, 0), Vector3(0.06, 2.0 * scale_factor, 0.06), GREEN_SOFT, 0.9)
 
 func _build_player() -> void:
 	player = Player.new()
@@ -154,7 +243,16 @@ func _build_hud() -> void:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.add_child(root)
-	for spec in [["stats", Vector2(28, 22), 18], ["objective", Vector2(0, 24), 20], ["ammo", Vector2(-220, -70), 22], ["hint", Vector2(0, -48), 18], ["center", Vector2(0, -10), 34]]:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var overlay_shader := Shader.new()
+	overlay_shader.code = "shader_type canvas_item; void fragment(){ vec2 p=UV-vec2(0.5); float edge=smoothstep(0.25,0.78,length(p)); float scan=0.96+0.04*sin(UV.y*720.0); COLOR=vec4(0.0,0.06,0.015,0.12*edge)*scan; }"
+	var overlay_material := ShaderMaterial.new()
+	overlay_material.shader = overlay_shader
+	overlay.material = overlay_material
+	root.add_child(overlay)
+	for spec in [["stats", Vector2(28, 22), 18], ["top_right", Vector2(-32, 22), 18], ["objective", Vector2(0, 24), 20], ["ammo", Vector2(-220, -70), 22], ["hint", Vector2(0, -48), 18], ["center", Vector2(0, -10), 34]]:
 		var label := Label.new()
 		label.name = spec[0]
 		label.add_theme_color_override("font_color", GREEN)
@@ -168,7 +266,17 @@ func _build_hud() -> void:
 			label.position += spec[1]
 		elif spec[0] == "ammo":
 			label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-			label.position += spec[1]
+			label.offset_left = -360
+			label.offset_right = -20
+			label.offset_top = -80
+			label.offset_bottom = -30
+		elif spec[0] == "top_right":
+			label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+			label.offset_left = -300
+			label.offset_right = -20
+			label.offset_top = 20
+			label.offset_bottom = 60
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		elif spec[0] == "hint":
 			label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -178,7 +286,7 @@ func _build_hud() -> void:
 		root.add_child(label)
 		hud_labels[spec[0]] = label
 	crosshair = hud_labels["center"]
-	crosshair.text = "+"
+	crosshair.text = "⊕"
 
 func _show_title() -> void:
 	hud_labels["center"].text = "NEON MALL\n\nPRESS ENTER TO DEPLOY"
@@ -186,6 +294,7 @@ func _show_title() -> void:
 	hud_labels["objective"].text = "NATIONAL MALL // ENDLESS NIGHT"
 	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
 	hud_labels["stats"].text = ""
+	hud_labels["top_right"].text = ""
 	hud_labels["ammo"].text = ""
 
 func _start_game() -> void:
@@ -199,7 +308,7 @@ func _start_game() -> void:
 	hits = 0
 	player.reset_player()
 	director.reset_director()
-	hud_labels["center"].text = "+"
+	hud_labels["center"].text = "⊕"
 	hud_labels["center"].add_theme_font_size_override("font_size", 34)
 	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -214,7 +323,7 @@ func _toggle_pause() -> void:
 		hud_labels["center"].text = "PAUSED\n\nPRESS ESC TO RETURN"
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		hud_labels["center"].text = "+"
+		hud_labels["center"].text = "⊕"
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func player_died() -> void:
@@ -240,7 +349,8 @@ func _update_hud() -> void:
 	var accuracy := 0
 	if shots > 0:
 		accuracy = int(round(float(hits) / float(shots) * 100.0))
-	hud_labels["stats"].text = "SURVIVAL %02d:%02d    SCORE %06d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, score, kills, accuracy, tier]
+	hud_labels["stats"].text = "SURVIVAL %02d:%02d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, kills, accuracy, tier]
+	hud_labels["top_right"].text = "SCORE: %06d" % score
 	hud_labels["ammo"].text = "HP %03d    AMMO %02d / %03d" % [player.health, player.ammo, player.reserve_ammo]
 	if player.reloading:
 		hud_labels["ammo"].text += "    RELOADING"
