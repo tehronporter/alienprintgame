@@ -1,5 +1,6 @@
 # Godot editor and import cache
 .godot/
+.vercel/
 
 # Local editor files
 .DS_Store
@@ -16,3 +17,4 @@ tmp/
 dist/
 
 # Keep build/web checked in because GitHub Pages deploys it directly.
+.vercel
