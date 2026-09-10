@@ -1,0 +1,18 @@
+# Godot editor and import cache
+.godot/
+
+# Local editor files
+.DS_Store
+*.swp
+*.swo
+
+# Blender autosaves and backups
+*.blend1
+*.blend2
+
+# Temporary exports and local logs
+*.log
+tmp/
+dist/
+
+# Keep build/web checked in because GitHub Pages deploys it directly.
