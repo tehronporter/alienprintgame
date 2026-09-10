@@ -237,7 +237,10 @@ func _update_hud() -> void:
 	if not is_instance_valid(player):
 		return
 	var tier := int(survival_time / 60.0) + 1
-	hud_labels["stats"].text = "SURVIVAL %02d:%02d    SCORE %06d    KILLS %03d    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, score, kills, tier]
-	hud_labels["ammo"].text = "HP %03d    AMMO %02d / 120" % [player.health, player.ammo]
+	var accuracy := 0
+	if shots > 0:
+		accuracy = int(round(float(hits) / float(shots) * 100.0))
+	hud_labels["stats"].text = "SURVIVAL %02d:%02d    SCORE %06d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, score, kills, accuracy, tier]
+	hud_labels["ammo"].text = "HP %03d    AMMO %02d / %03d" % [player.health, player.ammo, player.reserve_ammo]
 	if player.reloading:
 		hud_labels["ammo"].text += "    RELOADING"
