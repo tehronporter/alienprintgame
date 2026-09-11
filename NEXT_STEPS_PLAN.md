@@ -18,7 +18,7 @@ This is an interaction benchmark, not a visual or content clone. Do not use Fort
 2. Weapon expansion — implemented rifle, scattergun, and pistol with independent ammunition, switching, spread, recoil, reload timing, weak points, and HUD slots.
 3. Enemy encounters — implemented melee roles, ranged strafing rifle/elite behavior, pooled visible projectiles, local separation, attack pacing, and off-reticle spawning preference.
 4. Map traversal — implemented five named landmark lanes, recovery-space props, readable ground labels, cover loops, and DC landmark anchors.
-5. Ink presentation — implemented unshaded neon materials, cached environment materials, hero viewmodel, alien silhouettes, hit/death effects, scan treatment, and landmark detail.
+5. Ink presentation — implemented unshaded neon materials, cached environment materials, three distinct viewmodels, class-specific alien silhouettes, dark-core/thin-line close-combat rendering, hit/death effects, animated grain/scan treatment, radar/compass, Lincoln Memorial, city layers, wreckage, smoke, paper debris, and landmark hatching.
 6. Audio atmosphere — implemented procedural Web-safe cues for shots, scattergun, reload, switching, hits, weak points, damage, pickups, death, and elite warnings.
 7. Progression — implemented streak scoring, resource drops, rapid-fire pickups, two-minute three-choice field mods, high scores, and best survival persistence.
 8. Menus/accessibility — implemented start, pause, death, calibration, auto-fire, reduced motion, mobile orientation, and control help flows.
@@ -27,7 +27,7 @@ This is an interaction benchmark, not a visual or content clone. Do not use Fort
 
 ## Next content milestone after this systems pass
 
-- Replace shared weapon geometry with three fully distinct Blender viewmodels and reload animations.
+- Add authored reload and inspect animations to the three distinct Blender viewmodels.
 - Add directional audio and a layered threat-tier music loop using licensed/original recordings.
 - Add obstacle-aware navigation meshes once the final cover layout stops changing.
 - Conduct real-device iPhone, Android, and Mac touchpad playtests; tune sensitivity and button placement from observed sessions.

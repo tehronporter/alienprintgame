@@ -45,7 +45,9 @@ When Blender is available:
 blender --background --python tools/generate_neon_mall.py
 ```
 
-This creates `neon_mall_source.blend` and `neon_mall_kit.glb` in the repository root. The source kit includes the Mall blockout, Capitol, Washington Monument, props, four alien scales, and first-person rifle. Godot remains procedural so the playable build and editable Blender source stay independently testable.
+This creates `neon_mall_source.blend` and `neon_mall_kit.glb` in the repository root. The source kit includes the Mall blockout, Capitol, Washington Monument, Lincoln Memorial, props, four alien scales, and distinct rifle/scattergun/pistol viewmodels. Godot remains procedural so the playable build and editable Blender source stay independently testable.
+
+The current visual pass adds layered city silhouettes, smoke plumes, invasion scratches, checkpoints, newspapers, landmark hatching, weapon-specific silhouettes, enemy-class armor profiles, animated screen grain, and a hand-inked radar/compass without shipping the large reference files.
 
 ## Verification
 

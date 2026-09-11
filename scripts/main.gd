@@ -136,7 +136,8 @@ func _build_world() -> void:
 	_make_box("ReflectingPool", Vector3(0, -0.03, -5), Vector3(8, 0.12, 82), Color("#020804"), 0.24)
 	_make_outline_box(Vector3(0, 0.06, -5), Vector3(8.4, 0.2, 82), GREEN, 1.7)
 	_make_capitol(Vector3(0, 0, -45))
-	_make_washington_monument(Vector3(0, 0, 38))
+	_make_washington_monument(Vector3(0, 0, 24))
+	_make_lincoln_memorial(Vector3(0, 0, 48))
 	_make_path_lines()
 	_make_cover()
 	_make_lamps()
@@ -144,6 +145,8 @@ func _build_world() -> void:
 	_make_flags()
 	_make_ground_doodles()
 	_make_map_set_dressing()
+	_make_city_ink()
+	_make_invasion_marks()
 	_make_pool_ink()
 	_make_sky_scratches()
 	_make_ufo(Vector3(-24, 17, -22), 1.2)
@@ -212,7 +215,8 @@ func _make_visual_sphere(label: String, pos: Vector3, radius: float, squash: Vec
 func _make_stroke(label: String, from: Vector3, to: Vector3, width: float, color: Color, energy := 1.0) -> MeshInstance3D:
 	var midpoint := (from + to) * 0.5
 	var stroke := _make_visual_box(label, midpoint, Vector3(width, width, from.distance_to(to)), color, energy)
-	stroke.look_at(to, Vector3.UP)
+	var direction := (to - from).normalized()
+	stroke.look_at(to, Vector3.FORWARD if absf(direction.dot(Vector3.UP)) > 0.98 else Vector3.UP)
 	return stroke
 
 func _make_outline_box(pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> void:
@@ -297,6 +301,21 @@ func _make_washington_monument(pos: Vector3) -> void:
 		var radius := 6.2
 		_make_visual_box("MonumentFlagPole", pos + Vector3(cos(angle) * radius, 1.6, sin(angle) * radius), Vector3(0.06, 3.2, 0.06), GREEN_SOFT, 0.9)
 
+func _make_lincoln_memorial(pos: Vector3) -> void:
+	# A broad, outlined facade closes the western sightline without adding a textured asset.
+	_make_visual_box("LincolnCore", pos + Vector3(0, 4.2, 0), Vector3(24, 8.2, 7.0), GREEN_DARK, 0.06)
+	_make_outline_box(pos + Vector3(0, 4.2, 0), Vector3(24.4, 8.5, 7.2), GREEN, 1.35)
+	_make_visual_box("LincolnRoof", pos + Vector3(0, 8.7, -0.2), Vector3(27.0, 0.35, 8.5), GREEN, 1.7)
+	for column in range(12):
+		var x: float = -10.5 + float(column) * 1.9
+		_make_visual_box("LincolnColumn", pos + Vector3(x, 4.2, -3.75), Vector3(0.3, 6.7, 0.28), GREEN, 1.65)
+		_make_visual_box("LincolnCapital", pos + Vector3(x, 7.55, -3.75), Vector3(0.62, 0.16, 0.45), GREEN_SOFT, 1.1)
+	for stair in range(7):
+		_make_visual_box("LincolnStair", pos + Vector3(0, 0.1 + float(stair) * 0.1, -5.7 + float(stair) * 0.42), Vector3(29.0 - float(stair) * 1.4, 0.07, 0.16), GREEN, 1.15)
+	for crack in range(6):
+		var x: float = -9.0 + float(crack) * 3.7
+		_make_stroke("LincolnCrack", pos + Vector3(x, 2.0 + float(crack % 2), -3.94), pos + Vector3(x + 0.7, 3.2 + float(crack % 3), -3.94), 0.07, GREEN_SOFT, 0.9)
+
 func _make_path_lines() -> void:
 	for x in [-18.0, -9.0, 9.0, 18.0]:
 		_make_visual_box("MallPath", Vector3(x, 0.02, 0), Vector3(0.12, 0.04, 92), GREEN, 1.25)
@@ -376,9 +395,53 @@ func _make_map_set_dressing() -> void:
 	_make_hotdog_cart(Vector3(-15.0, 0, 15.0))
 	_make_wrecked_car(Vector3(18.0, 0, -18.0), -0.28)
 	_make_wrecked_car(Vector3(-22.0, 0, 27.0), 0.52)
+	_make_checkpoint(Vector3(8.0, 0, 8.0), -0.12)
+	_make_checkpoint(Vector3(-10.0, 0, -24.0), 0.2)
 	_make_zone_marker("CAPITOL APPROACH", Vector3(0, 0.04, -31.0), 1.0)
 	_make_zone_marker("REFLECTING POOL", Vector3(0, 0.04, 0.0), 0.82)
 	_make_zone_marker("MONUMENT LINE", Vector3(0, 0.04, 29.0), 0.72)
+
+func _make_checkpoint(pos: Vector3, angle: float) -> void:
+	for side in [-1.0, 1.0]:
+		var leg := _make_visual_box("CheckpointLeg", pos + Vector3(side * 1.7, 0.65, 0), Vector3(0.16, 1.3, 0.16), GREEN, 1.2)
+		leg.rotation.z = side * 0.18
+	var bar := _make_visual_box("CheckpointBar", pos + Vector3(0, 1.15, 0), Vector3(4.4, 0.32, 0.22), GREEN_DARK, 0.12)
+	bar.rotation.y = angle
+	_make_outline_box(pos + Vector3(0, 1.15, 0), Vector3(4.5, 0.38, 0.28), GREEN, 1.25)
+	for stripe in range(5):
+		var mark := _make_visual_box("BarrierStripe", pos + Vector3(-1.5 + float(stripe) * 0.75, 1.15, -0.18), Vector3(0.08, 0.36, 0.05), GREEN_SOFT, 1.0)
+		mark.rotation.z = -0.45
+
+func _make_city_ink() -> void:
+	# Side silhouettes create the layered urban horizon visible throughout the art bible.
+	for side in [-1.0, 1.0]:
+		for index in range(8):
+			var z: float = -38.0 + float(index) * 10.2
+			var height: float = 5.0 + float((index * 3) % 5)
+			var width: float = 5.5 + float(index % 3)
+			var x: float = side * (43.0 + float(index % 2) * 3.0)
+			_make_visual_box("CityBlock", Vector3(x, height * 0.5, z), Vector3(width, height, 5.5), GREEN_DARK, 0.04)
+			_make_outline_box(Vector3(x, height * 0.5, z), Vector3(width + 0.2, height + 0.2, 5.7), GREEN_SOFT, 0.7)
+			for floor in range(2):
+				for window in range(3):
+					_make_visual_box("CityWindow", Vector3(x - side * (width * 0.51), 1.8 + float(floor) * 2.1, z - 1.5 + float(window) * 1.5), Vector3(0.06, 0.65, 0.75), GREEN_SOFT, 0.8)
+
+func _make_invasion_marks() -> void:
+	for plume in range(5):
+		var x: float = -31.0 + float(plume) * 15.5
+		var z: float = -34.0 + float((plume * 17) % 63)
+		for curl in range(5):
+			var y: float = 3.0 + float(curl) * 1.5
+			var drift: float = sin(float(curl) * 1.8 + float(plume)) * 0.9
+			_make_stroke("SmokeCurl", Vector3(x + drift, y, z), Vector3(x - drift * 0.4, y + 1.0, z), 0.11 + float(curl % 2) * 0.04, GREEN_SOFT, 0.72)
+	for paper in range(28):
+		var x: float = -39.0 + fmod(float(paper * 23), 78.0)
+		var z: float = -41.0 + fmod(float(paper * 37), 82.0)
+		var page := _make_visual_box("WashingtonPost", Vector3(x, 0.055, z), Vector3(0.65, 0.025, 0.9), GREEN_DARK, 0.08)
+		page.rotation.y = float(paper) * 0.71
+		for line in range(3):
+			var ink := _make_visual_box("PaperScribble", Vector3(x, 0.075, z - 0.24 + float(line) * 0.22), Vector3(0.42 - float(line) * 0.05, 0.02, 0.035), GREEN_SOFT, 0.82)
+			ink.rotation.y = page.rotation.y
 
 func _make_subway_entrance(pos: Vector3) -> void:
 	_make_outline_box(pos + Vector3(0, 1.1, 0), Vector3(6.0, 2.2, 3.0), GREEN, 1.1)
@@ -487,7 +550,7 @@ func _build_hud() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var overlay_shader := Shader.new()
-	overlay_shader.code = "shader_type canvas_item; void fragment(){ vec2 p=UV-vec2(0.5); float edge=smoothstep(0.25,0.78,length(p)); float scan=0.96+0.04*sin(UV.y*720.0); COLOR=vec4(0.0,0.06,0.015,0.12*edge)*scan; }"
+	overlay_shader.code = "shader_type canvas_item; float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);} void fragment(){ vec2 p=UV-vec2(0.5); float edge=smoothstep(0.24,0.73,length(p)); float scan=0.93+0.07*sin(UV.y*720.0); float grain=hash(floor(UV*vec2(420.0,240.0))+floor(TIME*7.0)); float scratch=step(0.997,hash(vec2(floor(UV.x*310.0),floor(TIME*2.0))))*(0.3+0.7*UV.y); float alpha=0.08*edge+0.025*(1.0-grain)+0.06*scratch; COLOR=vec4(0.0,0.12*scan,0.025,alpha); }"
 	var overlay_material := ShaderMaterial.new()
 	overlay_material.shader = overlay_shader
 	overlay.material = overlay_material

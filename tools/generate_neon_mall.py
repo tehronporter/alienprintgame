@@ -109,6 +109,18 @@ def build_monument(origin, black, green, dim):
         cylinder("Monument_Flagpole", (ox + math.cos(angle) * 6.2, oy + 1.6, oz + math.sin(angle) * 6.2), 0.035, 3.2, dim, 6)
 
 
+def build_lincoln(origin, black, green, dim):
+    ox, oy, oz = origin
+    cube("Lincoln_Core", (ox, oy + 4.2, oz), (12, 4.1, 3.5), black)
+    outline_box("Lincoln_Ink", (ox, oy + 4.2, oz), (12.2, 4.25, 3.6), green, 0.07)
+    cube("Lincoln_Roof", (ox, oy + 8.7, oz - 0.2), (13.5, 0.18, 4.25), green)
+    for i in range(12):
+        x = ox - 10.5 + i * 1.9
+        cube("Lincoln_Column", (x, oy + 4.2, oz - 3.75), (0.15, 3.35, 0.14), green)
+    for step in range(7):
+        cube("Lincoln_Stair", (ox, oy + 0.1 + step * 0.1, oz - 5.7 + step * 0.42), (14.5 - step * 0.7, 0.035, 0.08), green)
+
+
 def build_alien(name, origin, scale, black, green, hot):
     ox, oy, oz = origin
     root = bpy.data.objects.new(name, None)
@@ -137,6 +149,25 @@ def build_weapon(origin, black, green, dim):
         cube("Barrel_Rib", (ox, oy + 0.2, oz - 0.55 - i * 0.18), (0.25, 0.025, 0.025), dim)
 
 
+def build_scattergun(origin, black, green, hot):
+    ox, oy, oz = origin
+    cube("Scatter_Receiver", (ox, oy, oz), (0.42, 0.26, 0.72), black)
+    outline_box("Scatter_Ink", (ox, oy, oz), (0.45, 0.29, 0.75), green, 0.035)
+    for side in (-1, 1):
+        cube("Scatter_Barrel", (ox + side * 0.22, oy + 0.08, oz - 0.86), (0.13, 0.13, 0.62), black)
+        outline_box("Scatter_Barrel_Ink", (ox + side * 0.22, oy + 0.08, oz - 0.86), (0.15, 0.15, 0.64), hot, 0.025)
+    for i in range(5):
+        cube("Scatter_Pump_Rib", (ox, oy - 0.11, oz - 0.28 - i * 0.11), (0.38, 0.02, 0.02), green)
+
+
+def build_pistol(origin, black, green, hot):
+    ox, oy, oz = origin
+    cube("Pistol_Slide", (ox, oy + 0.08, oz - 0.1), (0.27, 0.2, 0.58), black)
+    outline_box("Pistol_Ink", (ox, oy + 0.08, oz - 0.1), (0.29, 0.22, 0.6), hot, 0.03)
+    cube("Pistol_Grip", (ox, oy - 0.37, oz + 0.28), (0.2, 0.42, 0.22), black, rotation=(-0.22, 0, 0))
+    outline_box("Pistol_Grip_Ink", (ox, oy - 0.37, oz + 0.28), (0.22, 0.44, 0.24), green, 0.025)
+
+
 def build():
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
@@ -151,7 +182,8 @@ def build():
     for x in (-18, -9, 9, 18):
         cube("Mall_Path_Ink", (x, 0.03, 0), (0.06, 0.02, 46), green)
     build_capitol((0, 0, -45), black, green, dim)
-    build_monument((0, 0, 38), black, green, dim)
+    build_monument((0, 0, 24), black, green, dim)
+    build_lincoln((0, 0, 48), black, green, dim)
 
     for i in range(12):
         angle = i * 2.399
@@ -169,7 +201,9 @@ def build():
     build_alien("Alien_Rifle", (-4, 0, 57), 1.0, black, green, hot)
     build_alien("Alien_Bruiser", (5, 0, 57), 1.65, black, green, hot)
     build_alien("Alien_Elite", (16, 0, 57), 2.05, black, hot, hot)
-    build_weapon((27, 1.2, 57), black, green, dim)
+    build_weapon((25, 1.2, 57), black, green, dim)
+    build_scattergun((31, 1.2, 57), black, green, hot)
+    build_pistol((36, 1.2, 57), black, green, hot)
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(repo_root, "neon_mall_source.blend"))

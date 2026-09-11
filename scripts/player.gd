@@ -24,6 +24,8 @@ var camera: Camera3D
 var weapon: Node3D
 var weapon_body: MeshInstance3D
 var weapon_flash: MeshInstance3D
+var weapon_models: Array[Node3D] = []
+var weapon_flashes: Array[MeshInstance3D] = []
 var weapon_base_position := Vector3(0.54, -0.5, -1.42)
 var bob_time := 0.0
 var recoil := 0.0
@@ -66,23 +68,74 @@ func _build_weapon() -> void:
 	weapon.scale = Vector3(0.72, 0.72, 0.72)
 	weapon.rotation_degrees = Vector3(-7, 0, 0)
 	camera.add_child(weapon)
-	weapon_body = _weapon_part(Vector3.ZERO, Vector3(0.48, 0.3, 1.05), DARK, 0.15)
+	_build_rifle_model()
+	_build_scattergun_model()
+	_build_pistol_model()
+	_apply_weapon_pose()
+
+func _new_weapon_model(label: String) -> Node3D:
+	var model := Node3D.new()
+	model.name = label
+	weapon.add_child(model)
+	weapon_models.append(model)
+	return model
+
+func _build_rifle_model() -> void:
+	var model := _new_weapon_model("InkRifleModel")
+	weapon_body = _weapon_part(Vector3.ZERO, Vector3(0.48, 0.3, 1.05), DARK, 0.15, model)
 	weapon_body.rotation_degrees = Vector3(0, 0, -3)
-	_weapon_outline(Vector3.ZERO, Vector3(0.52, 0.34, 1.08), GREEN, 2.1)
-	_weapon_part(Vector3(0, 0.2, -0.14), Vector3(0.28, 0.12, 0.42), DARK, 0.15)
-	_weapon_outline(Vector3(0, 0.2, -0.14), Vector3(0.3, 0.14, 0.44), HOT, 2.5)
-	_weapon_part(Vector3(0, -0.25, 0.22), Vector3(0.22, 0.45, 0.27), DARK, 0.15).rotation.x = -0.25
-	_weapon_outline(Vector3(0, -0.25, 0.22), Vector3(0.24, 0.47, 0.29), GREEN, 1.8)
-	_weapon_part(Vector3(0, 0, -0.72), Vector3(0.18, 0.18, 0.55), DARK, 0.15)
-	_weapon_outline(Vector3(0, 0, -0.72), Vector3(0.2, 0.2, 0.57), GREEN, 2.2)
+	_weapon_outline(Vector3.ZERO, Vector3(0.52, 0.34, 1.08), GREEN, 2.1, model)
+	_weapon_part(Vector3(0, 0.2, -0.14), Vector3(0.28, 0.12, 0.42), DARK, 0.15, model)
+	_weapon_outline(Vector3(0, 0.2, -0.14), Vector3(0.3, 0.14, 0.44), HOT, 2.5, model)
+	_weapon_part(Vector3(0, -0.25, 0.22), Vector3(0.22, 0.45, 0.27), DARK, 0.15, model).rotation.x = -0.25
+	_weapon_outline(Vector3(0, -0.25, 0.22), Vector3(0.24, 0.47, 0.29), GREEN, 1.8, model)
+	_weapon_part(Vector3(0, 0, -0.72), Vector3(0.18, 0.18, 0.55), DARK, 0.15, model)
+	_weapon_outline(Vector3(0, 0, -0.72), Vector3(0.2, 0.2, 0.57), GREEN, 2.2, model)
 	for rib in range(4):
-		_weapon_part(Vector3(0, 0.17, -0.43 - float(rib) * 0.14), Vector3(0.34, 0.045, 0.045), GREEN, 1.8).rotation.z = float(rib - 2) * 0.025
-	_weapon_part(Vector3(0.31, -0.27, 0.16), Vector3(0.3, 0.28, 0.48), Color("#031108"), 0.2).rotation.z = -0.32
-	_weapon_outline(Vector3(0.31, -0.27, 0.16), Vector3(0.32, 0.3, 0.5), Color("#164d20"), 1.3)
-	_weapon_part(Vector3(-0.3, -0.18, -0.42), Vector3(0.25, 0.22, 0.42), Color("#031108"), 0.2).rotation.z = 0.22
-	_weapon_outline(Vector3(-0.3, -0.18, -0.42), Vector3(0.27, 0.24, 0.44), Color("#164d20"), 1.3)
-	weapon_flash = _weapon_part(Vector3(0, 0.01, -0.98), Vector3(0.34, 0.24, 0.12), HOT, 5.0)
+		_weapon_part(Vector3(0, 0.17, -0.43 - float(rib) * 0.14), Vector3(0.34, 0.045, 0.045), GREEN, 1.8, model).rotation.z = float(rib - 2) * 0.025
+	_add_glove(model, Vector3(0.31, -0.27, 0.16), -0.32)
+	_add_glove(model, Vector3(-0.3, -0.18, -0.42), 0.22)
+	weapon_flash = _weapon_part(Vector3(0, 0.01, -0.98), Vector3(0.34, 0.24, 0.12), HOT, 5.0, model)
 	weapon_flash.visible = false
+	weapon_flashes.append(weapon_flash)
+
+func _build_scattergun_model() -> void:
+	var model := _new_weapon_model("MarkerScattergunModel")
+	_weapon_part(Vector3(0, 0, 0.08), Vector3(0.7, 0.42, 0.82), DARK, 0.15, model)
+	_weapon_outline(Vector3(0, 0, 0.08), Vector3(0.74, 0.46, 0.86), GREEN, 2.1, model)
+	for side in [-1.0, 1.0]:
+		_weapon_part(Vector3(side * 0.2, 0.08, -0.62), Vector3(0.25, 0.25, 0.68), DARK, 0.15, model)
+		_weapon_outline(Vector3(side * 0.2, 0.08, -0.62), Vector3(0.29, 0.29, 0.72), HOT, 2.3, model)
+	_weapon_part(Vector3(0, -0.12, -0.35), Vector3(0.62, 0.18, 0.42), DARK, 0.15, model)
+	for rib in range(5):
+		_weapon_part(Vector3(0, -0.02, -0.2 - float(rib) * 0.11), Vector3(0.68, 0.035, 0.035), GREEN, 1.8, model)
+	_add_glove(model, Vector3(0.38, -0.3, 0.18), -0.38)
+	_add_glove(model, Vector3(-0.34, -0.2, -0.34), 0.28)
+	var flash := _weapon_part(Vector3(0, 0.08, -1.0), Vector3(0.72, 0.34, 0.12), HOT, 5.0, model)
+	flash.visible = false
+	weapon_flashes.append(flash)
+
+func _build_pistol_model() -> void:
+	var model := _new_weapon_model("ScribblePistolModel")
+	_weapon_part(Vector3(0, 0.05, -0.08), Vector3(0.42, 0.3, 0.86), DARK, 0.15, model)
+	_weapon_outline(Vector3(0, 0.05, -0.08), Vector3(0.46, 0.34, 0.9), HOT, 2.2, model)
+	var grip := _weapon_part(Vector3(0, -0.3, 0.22), Vector3(0.32, 0.58, 0.32), DARK, 0.15, model)
+	grip.rotation.x = -0.24
+	_weapon_outline(Vector3(0, -0.3, 0.22), Vector3(0.36, 0.62, 0.36), GREEN, 1.9, model)
+	_weapon_part(Vector3(0, 0.24, -0.18), Vector3(0.2, 0.1, 0.32), GREEN, 1.9, model)
+	for mark in range(3):
+		_weapon_part(Vector3(-0.23, 0.11, -0.2 + float(mark) * 0.18), Vector3(0.025, 0.16, 0.08), GREEN, 1.6, model).rotation.z = 0.16
+	_add_glove(model, Vector3(0.26, -0.38, 0.3), -0.2)
+	var flash := _weapon_part(Vector3(0, 0.05, -0.58), Vector3(0.34, 0.25, 0.1), HOT, 5.0, model)
+	flash.visible = false
+	weapon_flashes.append(flash)
+
+func _add_glove(parent: Node3D, pos: Vector3, angle: float) -> void:
+	var hand := _weapon_part(pos, Vector3(0.3, 0.28, 0.48), Color("#031108"), 0.2, parent)
+	hand.rotation.z = angle
+	_weapon_outline(pos, Vector3(0.32, 0.3, 0.5), Color("#164d20"), 1.3, parent)
+	for seam in range(3):
+		_weapon_part(pos + Vector3(-0.13 + float(seam) * 0.13, 0.15, -0.05), Vector3(0.035, 0.025, 0.32), GREEN, 1.2, parent).rotation.z = angle
 
 func _material(color: Color, energy: float) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -123,27 +176,28 @@ func reset_player() -> void:
 	is_sprinting = false
 	_apply_weapon_pose()
 
-func _weapon_part(offset: Vector3, size: Vector3, color: Color, energy: float) -> MeshInstance3D:
+func _weapon_part(offset: Vector3, size: Vector3, color: Color, energy: float, parent: Node3D = null) -> MeshInstance3D:
 	var part := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	part.mesh = mesh
 	part.position = offset
 	part.material_override = _material(color, energy)
-	weapon.add_child(part)
+	var target_parent: Node3D = weapon if parent == null else parent
+	target_parent.add_child(part)
 	return part
 
-func _weapon_outline(offset: Vector3, size: Vector3, color: Color, energy: float) -> void:
+func _weapon_outline(offset: Vector3, size: Vector3, color: Color, energy: float, parent: Node3D = null) -> void:
 	var width := 0.018
 	for y in [-size.y * 0.5, size.y * 0.5]:
 		for z in [-size.z * 0.5, size.z * 0.5]:
-			_weapon_part(offset + Vector3(0, y, z), Vector3(size.x, width, width), color, energy)
+			_weapon_part(offset + Vector3(0, y, z), Vector3(size.x, width, width), color, energy, parent)
 	for x in [-size.x * 0.5, size.x * 0.5]:
 		for z in [-size.z * 0.5, size.z * 0.5]:
-			_weapon_part(offset + Vector3(x, 0, z), Vector3(width, size.y, width), color, energy)
+			_weapon_part(offset + Vector3(x, 0, z), Vector3(width, size.y, width), color, energy, parent)
 	for x in [-size.x * 0.5, size.x * 0.5]:
 		for y in [-size.y * 0.5, size.y * 0.5]:
-			_weapon_part(offset + Vector3(x, y, 0), Vector3(width, width, size.z), color, energy)
+			_weapon_part(offset + Vector3(x, y, 0), Vector3(width, width, size.z), color, energy, parent)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and main.game_started and not main.game_over and not main.paused:
@@ -258,6 +312,7 @@ func _fire() -> void:
 	main.shots += 1
 	fire_cooldown = float(spec["fire_rate"]) / fire_rate_multiplier
 	recoil = 1.25 if current_weapon == 1 else 1.0
+	weapon_flash = weapon_flashes[current_weapon]
 	weapon_flash.visible = true
 	if main.has_method("play_sound"):
 		main.play_sound("scatter" if current_weapon == 1 else "shot", 0.92 + rng.randf_range(0.0, 0.16))
@@ -340,15 +395,17 @@ func _load_weapon_state() -> void:
 	reserve_ammo = int(spec["reserve"])
 
 func _apply_weapon_pose() -> void:
+	for index in range(weapon_models.size()):
+		weapon_models[index].visible = index == current_weapon
 	if current_weapon == 1:
-		weapon.scale = Vector3(0.88, 0.8, 0.92)
-		weapon_base_position = Vector3(0.55, -0.52, -1.32)
+		weapon.scale = Vector3(0.76, 0.72, 0.8)
+		weapon_base_position = Vector3(0.66, -0.57, -1.4)
 	elif current_weapon == 2:
-		weapon.scale = Vector3(0.56, 0.62, 0.62)
-		weapon_base_position = Vector3(0.48, -0.42, -1.18)
+		weapon.scale = Vector3(0.5, 0.55, 0.56)
+		weapon_base_position = Vector3(0.6, -0.5, -1.26)
 	else:
-		weapon.scale = Vector3(0.72, 0.72, 0.72)
-		weapon_base_position = Vector3(0.54, -0.5, -1.42)
+		weapon.scale = Vector3(0.63, 0.63, 0.63)
+		weapon_base_position = Vector3(0.67, -0.57, -1.52)
 
 func apply_pickup(kind: String) -> void:
 	if kind == "health":

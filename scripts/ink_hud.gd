@@ -44,6 +44,9 @@ func _draw() -> void:
 	_draw_crosshair(center)
 	if not main.game_started or main.game_over:
 		return
+	_draw_compass(Vector2(center.x, 112.0), view.x)
+	if view.x >= 760.0:
+		_draw_radar(Vector2(92, 122), 48.0)
 	_draw_meter(Vector2(28, view.y - 82), float(main.player.health) / float(main.player.max_health), "VITALS", GREEN)
 	_draw_meter(Vector2(28, view.y - 124), float(main.player.shield) / 100.0, "SHIELD", HOT)
 	_draw_ammo(Vector2(view.x - 255, view.y - 86), main.player.ammo, main.player.get_mag_size())
@@ -69,6 +72,46 @@ func _draw_corner_frame(view: Vector2) -> void:
 		var sy := 1.0 if corner.y < view.y * 0.5 else -1.0
 		draw_line(corner, corner + Vector2(sx * span, 0), DIM, 2.0)
 		draw_line(corner, corner + Vector2(0, sy * span), DIM, 2.0)
+	# Deliberately mismatched second pass keeps the frame from feeling machine-perfect.
+	draw_line(Vector2(24, 20), Vector2(minf(128.0, view.x * 0.13), 23), GREEN, 1.0)
+	draw_line(Vector2(view.x - 25, view.y - 20), Vector2(view.x - minf(118.0, view.x * 0.12), view.y - 24), GREEN, 1.0)
+
+func _draw_compass(pos: Vector2, view_width: float) -> void:
+	var span: float = minf(310.0, view_width * 0.38)
+	draw_line(pos - Vector2(span * 0.5, 0), pos + Vector2(span * 0.5, 0), DIM, 1.5)
+	var heading: float = fposmod(rad_to_deg(main.player.yaw), 360.0)
+	for tick in range(-4, 5):
+		var x: float = pos.x + float(tick) * span / 8.0
+		var height: float = 10.0 if tick == 0 else 5.0
+		draw_line(Vector2(x, pos.y - height), Vector2(x + float(tick % 2), pos.y + height), GREEN if tick == 0 else DIM, 2.0)
+	var cardinal := "N"
+	if heading >= 45.0 and heading < 135.0:
+		cardinal = "W"
+	elif heading >= 135.0 and heading < 225.0:
+		cardinal = "S"
+	elif heading >= 225.0 and heading < 315.0:
+		cardinal = "E"
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-12, -15), cardinal + "  %03d" % int(heading), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, GREEN)
+
+func _draw_radar(pos: Vector2, radius: float) -> void:
+	draw_arc(pos, radius, 0.0, TAU, 32, DIM, 2.0)
+	draw_arc(pos + Vector2(1, -1), radius - 5.0, 0.0, TAU, 28, GREEN, 1.0)
+	draw_line(pos - Vector2(radius, 0), pos + Vector2(radius, 0), DIM, 1.0)
+	draw_line(pos - Vector2(0, radius), pos + Vector2(0, radius), DIM, 1.0)
+	var forward := Vector2(0, -1).rotated(-main.player.yaw)
+	draw_colored_polygon(PackedVector2Array([pos + forward * 11.0, pos + forward.rotated(2.35) * 7.0, pos + forward.rotated(-2.35) * 7.0]), GREEN)
+	var drawn := 0
+	for enemy in main.enemy_pool:
+		if not enemy.active:
+			continue
+		var offset_3d: Vector3 = enemy.global_position - main.player.global_position
+		var offset := Vector2(offset_3d.x, offset_3d.z).rotated(main.player.yaw) * (radius / 34.0)
+		if offset.length() < radius - 4.0:
+			draw_circle(pos + offset, 2.5 if enemy.enemy_type != "elite" else 4.5, HOT if enemy.enemy_type == "elite" else GREEN)
+			drawn += 1
+			if drawn >= 16:
+				break
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-30, radius + 17), "MALL RADAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, DIM)
 
 func _draw_crosshair(center: Vector2) -> void:
 	if not main.game_started or main.game_over or main.paused:
