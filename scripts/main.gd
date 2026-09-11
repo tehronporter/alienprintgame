@@ -109,7 +109,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("pause") and game_started and not game_over:
 		_toggle_pause()
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER and not game_started:
+	if not game_started and (event.is_action_pressed("fire") or (event is InputEventKey and event.pressed and event.keycode == KEY_ENTER)):
 		_start_game()
 	if event.is_action_pressed("fire") and game_started and game_over:
 		_restart_game()
@@ -129,28 +129,12 @@ func _build_world() -> void:
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#06320b")
 	environment.ambient_light_energy = 0.28
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.environment = environment
 	add_child(env)
-	_make_box("MallGround", Vector3(0, -0.6, 0), Vector3(110, 1, 110), GREEN_DARK, 0.03)
-	_make_box("ReflectingPool", Vector3(0, -0.03, -5), Vector3(8, 0.12, 82), Color("#020804"), 0.24)
-	_make_outline_box(Vector3(0, 0.06, -5), Vector3(8.4, 0.2, 82), GREEN, 1.7)
-	_make_capitol(Vector3(0, 0, -45))
-	_make_washington_monument(Vector3(0, 0, 24))
-	_make_lincoln_memorial(Vector3(0, 0, 48))
-	_make_path_lines()
-	_make_cover()
-	_make_lamps()
-	_make_tree_line()
-	_make_flags()
-	_make_ground_doodles()
-	_make_map_set_dressing()
-	_make_city_ink()
-	_make_invasion_marks()
-	_make_pool_ink()
-	_make_sky_scratches()
-	_make_ufo(Vector3(-24, 17, -22), 1.2)
-	_make_ufo(Vector3(24, 20, 4), 0.8)
+	var illustrated := preload("res://scripts/illustrated_mall.gd").new()
+	arena_root.add_child(illustrated)
+	illustrated.build(self)
 
 func _make_material(color: Color, emission_energy := 1.0) -> StandardMaterial3D:
 	var key := "%s_%.2f" % [color.to_html(), emission_energy]
@@ -544,6 +528,9 @@ func _build_hud() -> void:
 	hud.name = "HUD"
 	add_child(hud)
 	var root := Control.new()
+	var ink_theme := Theme.new()
+	ink_theme.default_font = preload("res://assets/fonts/Kalam-Regular.ttf")
+	root.theme = ink_theme
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.add_child(root)
 	var overlay := ColorRect.new()
@@ -574,8 +561,9 @@ func _build_hud() -> void:
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		elif spec[0] == "center":
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.set_anchors_preset(Control.PRESET_CENTER)
-			label.position += spec[1]
+			label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		elif spec[0] == "ammo":
 			label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 			label.offset_left = -360
@@ -585,6 +573,7 @@ func _build_hud() -> void:
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		elif spec[0] == "top_right":
 			label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+			label.add_theme_font_size_override("font_size", 30)
 			label.offset_left = -300
 			label.offset_right = -20
 			label.offset_top = 20
@@ -724,14 +713,14 @@ func _update_settings_readout() -> void:
 	sensitivity_value.text = "CURRENT: %.4f   %s" % [look_sensitivity, "TRACKPAD CALIBRATED" if touchpad_mode else "MOUSE DEFAULT"]
 
 func _show_title() -> void:
-	hud_labels["center"].text = "NEON MALL\n\nPRESS ENTER TO DEPLOY"
-	hud_labels["center"].add_theme_font_size_override("font_size", 30)
+	hud_labels["center"].text = "NEON MALL\nDEFEND WASHINGTON, DC\n\nCLICK OR PRESS ENTER TO PLAY"
+	hud_labels["center"].add_theme_font_size_override("font_size", 38)
 	hud_labels["objective"].text = "NATIONAL MALL // ENDLESS NIGHT"
 	hud_labels["hint"].text = "WASD MOVE   SHIFT SPRINT   SPACE JUMP   RMB AIM   1/2/3 WEAPONS"
 	hud_labels["stats"].text = ""
 	hud_labels["top_right"].text = ""
 	hud_labels["ammo"].text = ""
-	settings_panel.visible = true
+	settings_panel.visible = false
 
 func _start_game() -> void:
 	get_tree().paused = false
@@ -910,12 +899,11 @@ func _update_hud() -> void:
 	if not is_instance_valid(player):
 		return
 	var tier := int(survival_time / 60.0) + 1
-	var accuracy := 0
-	if shots > 0:
-		accuracy = int(round(float(hits) / float(shots) * 100.0))
-	hud_labels["stats"].text = "SURVIVAL %02d:%02d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, kills, accuracy, tier]
+	hud_labels["stats"].text = "WAVE %02d  /  %02d:%02d" % [tier, int(survival_time) / 60, int(survival_time) % 60]
 	hud_labels["top_right"].text = "SCORE: %06d" % score
-	var stance := "ADS" if player.is_aiming else "SPRINT" if player.is_sprinting else "CROUCH" if player.is_crouching else "READY"
-	hud_labels["ammo"].text = "%s  [%d]  %s\nHP %03d  SH %03d  AMMO %02d/%03d  STREAK x%02d" % [player.get_weapon_name(), player.current_weapon + 1, stance, player.health, player.shield, player.ammo, player.reserve_ammo, streak]
-	if player.reloading:
-		hud_labels["ammo"].text += "    RELOADING"
+	hud_labels["objective"].text = "WASHINGTON, DC  /  NATIONAL MALL" if survival_time < 8 else "WAVE %02d  •  MORE ALIENS. BIGGER. FASTER." % tier
+	if ink_hud.elite_timer > 0:
+		hud_labels["objective"].text = "ALIEN OVERLORD INBOUND"
+	hud_labels["ammo"].text = ""
+	if survival_time > 15:
+		hud_labels["hint"].text = ""

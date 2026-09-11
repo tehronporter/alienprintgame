@@ -1,6 +1,7 @@
 extends Control
 
-const GREEN := Color("#7dff35")
+const FONT = preload("res://assets/fonts/Kalam-Regular.ttf")
+const GREEN := Color("#99ff60")
 const HOT := Color("#c4ff82")
 const DIM := Color("#164d20")
 
@@ -44,20 +45,17 @@ func _draw() -> void:
 	_draw_crosshair(center)
 	if not main.game_started or main.game_over:
 		return
-	_draw_compass(Vector2(center.x, 112.0), view.x)
-	if view.x >= 760.0:
-		_draw_radar(Vector2(92, 122), 48.0)
-	_draw_meter(Vector2(28, view.y - 82), float(main.player.health) / float(main.player.max_health), "VITALS", GREEN)
-	_draw_meter(Vector2(28, view.y - 124), float(main.player.shield) / 100.0, "SHIELD", HOT)
-	_draw_ammo(Vector2(view.x - 255, view.y - 86), main.player.ammo, main.player.get_mag_size())
-	_draw_weapon_slots(Vector2(center.x - 145, view.y - 142))
+	_draw_radar(Vector2(72, 113), 33.0)
+	_draw_meter(Vector2(58, view.y - 76), float(main.player.health) / float(main.player.max_health), "HEALTH", GREEN)
+	_draw_meter(Vector2(58, view.y - 122), float(main.player.shield) / 100.0, "SHIELD", HOT)
+	_draw_ammo(Vector2(view.x - 222, view.y - 70), main.player.ammo, main.player.get_mag_size())
+	_draw_weapon_slots(Vector2(center.x - 130, view.y - 78))
 	if critical_timer > 0.0:
-		draw_string(ThemeDB.fallback_font, center + Vector2(-58, -36), "WEAK POINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, HOT)
+		draw_string(FONT, center + Vector2(-58, -36), "WEAK POINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, HOT)
 	if elite_timer > 0.0:
 		var alpha := 0.55 + sin(pulse * 9.0) * 0.35
 		var warning := Color(HOT.r, HOT.g, HOT.b, alpha)
 		draw_line(Vector2(center.x - 210, 82), Vector2(center.x + 210, 82), warning, 3.0)
-		draw_string(ThemeDB.fallback_font, Vector2(center.x - 103, 72), "ELITE SIGNAL DETECTED", HORIZONTAL_ALIGNMENT_LEFT, -1, 19, warning)
 	if damage_timer > 0.0:
 		var strength := damage_timer / 0.32
 		var damage_color := Color(0.18, 1.0, 0.22, strength * 0.28)
@@ -91,7 +89,7 @@ func _draw_compass(pos: Vector2, view_width: float) -> void:
 		cardinal = "S"
 	elif heading >= 225.0 and heading < 315.0:
 		cardinal = "E"
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-12, -15), cardinal + "  %03d" % int(heading), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, GREEN)
+	draw_string(FONT, pos + Vector2(-12, -15), cardinal + "  %03d" % int(heading), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, GREEN)
 
 func _draw_radar(pos: Vector2, radius: float) -> void:
 	draw_arc(pos, radius, 0.0, TAU, 32, DIM, 2.0)
@@ -111,11 +109,12 @@ func _draw_radar(pos: Vector2, radius: float) -> void:
 			drawn += 1
 			if drawn >= 16:
 				break
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-30, radius + 17), "MALL RADAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, DIM)
+	draw_string(FONT, pos + Vector2(-30, radius + 17), "MALL RADAR", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, DIM)
 
 func _draw_crosshair(center: Vector2) -> void:
 	if not main.game_started or main.game_over or main.paused:
 		return
+	draw_arc(center, 15 if not main.player.is_aiming else 7, 0.1, TAU - 0.12, 28, GREEN, 1.5, true)
 	var gap := 5.0 if main.player.is_aiming else 16.0 if main.player.is_sprinting else 9.0 if hit_timer <= 0.0 else 14.0
 	var length := 8.0
 	var color := HOT if hit_timer > 0.0 else GREEN
@@ -128,29 +127,39 @@ func _draw_crosshair(center: Vector2) -> void:
 		draw_line(center + Vector2(7, -7), center + Vector2(-7, 7), HOT, 3.0)
 
 func _draw_meter(pos: Vector2, ratio: float, label: String, active_color: Color) -> void:
-	draw_string(ThemeDB.fallback_font, pos + Vector2(0, -12), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, active_color)
-	for i in range(10):
-		var segment := Rect2(pos + Vector2(float(i) * 18.0, 0), Vector2(13, 24))
-		draw_rect(segment, active_color if float(i) < ratio * 10.0 else DIM, false, 2.0)
-		if float(i) < ratio * 10.0:
-			draw_line(segment.position + Vector2(3, 19), segment.position + Vector2(10, 5), Color(0.25, 0.72, 0.18, 0.7), 2.0)
+	draw_style_box(_panel(), Rect2(pos - Vector2(14, 20), Vector2(216, 47)))
+	draw_string(FONT, pos + Vector2(0, -5), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, active_color)
+	var corners := PackedVector2Array([pos, pos + Vector2(181, -1), pos + Vector2(183, 22), pos + Vector2(-1, 24), pos])
+	draw_polyline(corners, active_color, 2.5, true)
+	for i in range(int(ratio * 35)):
+		var x := 4 + i * 5.0
+		draw_line(pos + Vector2(x, 19), pos + Vector2(x + 8, 4), active_color, 2, true)
+	if label == "HEALTH":
+		var heart := PackedVector2Array([Vector2(-22, 20), Vector2(-35, 7), Vector2(-35, 0), Vector2(-30, -4), Vector2(-23, 0), Vector2(-17, -4), Vector2(-10, 0), Vector2(-10, 7), Vector2(-22, 20)])
+		for i in range(heart.size()): heart[i] += pos
+		draw_polyline(heart, GREEN, 2.5, true)
 
-func _draw_ammo(pos: Vector2, ammo: int, capacity: int) -> void:
-	draw_string(ThemeDB.fallback_font, pos + Vector2(0, -10), "INK CELLS", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, GREEN)
-	for i in range(capacity):
-		var row := i / 12
-		var col := i % 12
-		var x := pos.x + float(col) * 18.0
-		var y := pos.y + float(row) * 20.0
-		var color := HOT if i < ammo else DIM
-		draw_line(Vector2(x, y), Vector2(x + 10, y - 10), color, 3.0)
-		draw_line(Vector2(x + 3, y + 2), Vector2(x + 12, y - 7), color, 1.0)
+func _panel() -> StyleBoxFlat:
+	var panel := StyleBoxFlat.new()
+	panel.bg_color = Color(0.0, 0.012, 0.0, 0.82)
+	return panel
+
+func _draw_ammo(pos: Vector2, ammo: int, _capacity: int) -> void:
+	draw_style_box(_panel(), Rect2(pos - Vector2(14, 32), Vector2(214, 73)))
+	var text := "RELOADING" if main.player.reloading else "%02d / %03d" % [ammo, main.player.reserve_ammo]
+	draw_string(FONT, pos + Vector2(22, 14), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 32 if not main.player.reloading else 22, HOT)
+	draw_string(FONT, pos + Vector2(22, -23), main.player.get_weapon_name(), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, GREEN)
+	draw_line(pos + Vector2(12, 25), pos + Vector2(181, 22), GREEN, 2.5, true)
+	for i in range(3):
+		var p := pos + Vector2(-16 + i * 10, 12)
+		draw_polyline(PackedVector2Array([p, p + Vector2(0, -18), p + Vector2(3, -26), p + Vector2(6, -18), p + Vector2(6, 0), p]), GREEN, 1.6, true)
 
 func _draw_weapon_slots(pos: Vector2) -> void:
 	for index in range(3):
-		var slot := Rect2(pos + Vector2(float(index) * 98.0, 0), Vector2(88, 42))
+		var slot := Rect2(pos + Vector2(float(index) * 89.0, 0), Vector2(80, 35))
 		var selected: bool = index == main.player.current_weapon
-		draw_rect(slot, HOT if selected else DIM, false, 3.0 if selected else 1.5)
-		draw_string(ThemeDB.fallback_font, slot.position + Vector2(7, 17), str(index + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, HOT if selected else GREEN)
+		draw_style_box(_panel(), slot)
+		var outline := PackedVector2Array([slot.position, slot.position + Vector2(80, -1), slot.end, slot.position + Vector2(-1, 35), slot.position])
+		draw_polyline(outline, HOT if selected else DIM, 2 if selected else 1.0, true)
 		var short_name := "RIFLE" if index == 0 else "SCATTER" if index == 1 else "PISTOL"
-		draw_string(ThemeDB.fallback_font, slot.position + Vector2(22, 29), short_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, HOT if selected else DIM)
+		draw_string(FONT, slot.position + Vector2(7, 24), str(index + 1) + " " + short_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, HOT if selected else GREEN)

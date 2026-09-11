@@ -28,6 +28,8 @@ var weapon_models: Array[Node3D] = []
 var weapon_flashes: Array[MeshInstance3D] = []
 var weapon_base_position := Vector3(0.54, -0.5, -1.42)
 var bob_time := 0.0
+var jump_buffer := 0.0
+var coyote_time := 0.0
 var recoil := 0.0
 var damage_kick := 0.0
 var hurt_cooldown := 0.0
@@ -64,6 +66,7 @@ func _ready() -> void:
 func _build_weapon() -> void:
 	weapon = Node3D.new()
 	weapon.name = "InkWeapon"
+	weapon.visible = false
 	weapon.position = weapon_base_position
 	weapon.scale = Vector3(0.72, 0.72, 0.72)
 	weapon.rotation_degrees = Vector3(-7, 0, 0)
@@ -72,6 +75,12 @@ func _build_weapon() -> void:
 	_build_scattergun_model()
 	_build_pistol_model()
 	_apply_weapon_pose()
+	var layer := CanvasLayer.new()
+	layer.layer = 0
+	add_child(layer)
+	var drawing := preload("res://scripts/ink_weapon_overlay.gd").new()
+	drawing.player = self
+	layer.add_child(drawing)
 
 func _new_weapon_model(label: String) -> Node3D:
 	var model := Node3D.new()
@@ -162,6 +171,8 @@ func reset_player() -> void:
 	reloading = false
 	reload_timer = 0.0
 	velocity = Vector3.ZERO
+	jump_buffer = 0.0
+	coyote_time = 0.0
 	position = Vector3(0, 1.5, 18)
 	yaw = 0.0
 	pitch = 0.0
@@ -235,6 +246,7 @@ func _physics_process(delta: float) -> void:
 	_handle_look()
 	_handle_movement(delta)
 	_handle_weapon_pose(delta)
+	weapon.visible = false
 	if Input.is_action_pressed("fire") or main.mobile_fire:
 		_fire()
 	elif main.mobile_controls_visible and main.mobile_auto_fire and _target_under_reticle():
@@ -273,13 +285,19 @@ func _handle_movement(delta: float) -> void:
 	var acceleration := 34.0 if is_on_floor() else 11.0
 	velocity.x = move_toward(velocity.x, direction.x * target_speed, acceleration * delta)
 	velocity.z = move_toward(velocity.z, direction.z * target_speed, acceleration * delta)
+	jump_buffer = maxf(0.0, jump_buffer - delta)
+	coyote_time = 0.12 if is_on_floor() else maxf(0.0, coyote_time - delta)
+	if Input.is_action_just_pressed("jump") or main.mobile_jump:
+		jump_buffer = 0.14
+		main.mobile_jump = false
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
-	elif Input.is_action_just_pressed("jump") or main.mobile_jump:
-		velocity.y = JUMP_VELOCITY
-		main.mobile_jump = false
 	else:
 		velocity.y = 0.0
+	if jump_buffer > 0.0 and coyote_time > 0.0:
+		velocity.y = JUMP_VELOCITY
+		jump_buffer = 0.0
+		coyote_time = 0.0
 	move_and_slide()
 	global_position.x = clampf(global_position.x, -48.0, 48.0)
 	global_position.z = clampf(global_position.z, -48.0, 48.0)

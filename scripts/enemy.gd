@@ -28,51 +28,16 @@ func _build_body() -> void:
 	visual_root = Node3D.new()
 	visual_root.name = "HandDrawnAlien"
 	add_child(visual_root)
-	_capsule_part(Vector3(0, 1.02, 0), 0.43, 1.18, GREEN_DARK, 0.12)
-	var chest := _part(Vector3(0, 1.25, -0.12), Vector3(0.76, 0.46, 0.18), GREEN_DARK, 0.12)
-	chest.rotation.z = -0.035
-	_part(Vector3(0, 1.47, -0.23), Vector3(0.72, 0.055, 0.055), GREEN, 1.7).rotation.z = -0.035
-	_part(Vector3(0, 1.04, -0.23), Vector3(0.64, 0.055, 0.055), GREEN, 1.5).rotation.z = 0.035
-	_sphere_part(Vector3(0, 1.93, -0.04), Vector3(0.9, 1.0, 0.76), 0.56, GREEN_DARK, 0.1)
-	eye_mesh = _part(Vector3(-0.2, 1.98, -0.48), Vector3(0.29, 0.12, 0.08), GREEN_HOT, 3.8)
-	eye_mesh.rotation.z = -0.16
-	var right_eye := _part(Vector3(0.2, 1.98, -0.48), Vector3(0.29, 0.12, 0.08), GREEN_HOT, 3.8)
-	right_eye.rotation.z = 0.16
-	_part(Vector3(0, 1.74, -0.49), Vector3(0.22, 0.05, 0.06), GREEN, 1.9)
-	var left_arm := _part(Vector3(-0.61, 1.12, -0.02), Vector3(0.14, 1.08, 0.14), GREEN_DARK, 0.12)
-	left_arm.rotation.z = -0.25
-	var right_arm := _part(Vector3(0.61, 1.12, -0.02), Vector3(0.14, 1.08, 0.14), GREEN_DARK, 0.12)
-	right_arm.rotation.z = 0.22
-	_part(Vector3(-0.82, 1.52, -0.05), Vector3(0.38, 0.15, 0.42), GREEN_DARK, 0.12).rotation.z = -0.18
-	_part(Vector3(0.82, 1.52, -0.05), Vector3(0.38, 0.15, 0.42), GREEN_DARK, 0.12).rotation.z = 0.14
-	_part(Vector3(-0.84, 1.59, -0.28), Vector3(0.36, 0.045, 0.045), GREEN, 1.7).rotation.z = -0.18
-	_part(Vector3(0.84, 1.59, -0.28), Vector3(0.36, 0.045, 0.045), GREEN, 1.7).rotation.z = 0.14
-	_part(Vector3(-0.25, 0.25, 0), Vector3(0.16, 1.16, 0.16), GREEN_DARK, 0.12).rotation.z = -0.07
-	_part(Vector3(0.25, 0.25, 0), Vector3(0.16, 1.16, 0.16), GREEN_DARK, 0.12).rotation.z = 0.08
-	# Thin offset bones preserve the black body mass and produce a drawn-outline read up close.
-	_part(Vector3(-0.66, 1.11, -0.1), Vector3(0.055, 1.02, 0.055), GREEN, 1.5).rotation.z = -0.25
-	_part(Vector3(0.66, 1.11, -0.1), Vector3(0.055, 1.02, 0.055), GREEN, 1.5).rotation.z = 0.22
-	_part(Vector3(-0.29, 0.25, -0.09), Vector3(0.055, 1.12, 0.055), GREEN, 1.5).rotation.z = -0.07
-	_part(Vector3(0.29, 0.25, -0.09), Vector3(0.055, 1.12, 0.055), GREEN, 1.5).rotation.z = 0.08
-	_part(Vector3(-0.28, -0.3, -0.12), Vector3(0.42, 0.14, 0.7), GREEN_DARK, 0.12)
-	_part(Vector3(0.28, -0.3, -0.12), Vector3(0.42, 0.14, 0.7), GREEN_DARK, 0.12)
-	_part(Vector3(-0.28, -0.23, -0.49), Vector3(0.4, 0.045, 0.045), GREEN, 1.6)
-	_part(Vector3(0.28, -0.23, -0.49), Vector3(0.4, 0.045, 0.045), GREEN, 1.6)
-	_part(Vector3(0.12, 1.02, -0.52), Vector3(1.24, 0.2, 0.18), GREEN_DARK, 0.2)
-	_part(Vector3(0.16, 1.04, -0.61), Vector3(1.4, 0.07, 0.07), GREEN, 2.0).rotation.z = -0.07
-	_part(Vector3(0.61, 1.0, -0.61), Vector3(0.14, 0.42, 0.1), GREEN, 1.8).rotation.z = -0.32
-	_part(Vector3(-0.58, 1.04, -0.61), Vector3(0.36, 0.14, 0.12), GREEN_HOT, 2.4)
-	for side in [-1.0, 1.0]:
-		var cheek := _part(Vector3(side * 0.47, 1.91, -0.28), Vector3(0.08, 0.58, 0.08), GREEN, 1.5)
-		cheek.rotation.z = side * 0.22
-		var antenna := _part(Vector3(side * 0.26, 2.49, 0), Vector3(0.06, 0.48, 0.06), GREEN, 1.8)
-		antenna.rotation.z = side * 0.28
-	_build_variant_details()
+	var illustration := preload("res://scripts/ink_art.gd").sprite("alien", 2.85)
+	illustration.name = "TrooperIllustration"
+	illustration.position.y = 1.1
+	visual_root.add_child(illustration)
 	collision_shape = CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.58
 	capsule.height = 2.55
 	collision_shape.shape = capsule
+	collision_shape.disabled = true
 	collision_shape.position.y = 0.92
 	add_child(collision_shape)
 
@@ -178,7 +143,11 @@ func _material(color: Color, energy: float) -> StandardMaterial3D:
 
 func activate(kind: String, spawn_position: Vector3, tier: int) -> void:
 	enemy_type = kind
+	var illustration := visual_root.get_node("TrooperIllustration") as Sprite3D
+	illustration.texture = preload("res://scripts/ink_art.gd").texture(kind if kind in ["bruiser", "elite"] else "alien")
+	illustration.pixel_size = 2.85 / illustration.texture.get_height()
 	active = true
+	collision_shape.set_deferred("disabled", false)
 	visible = true
 	process_mode = Node.PROCESS_MODE_INHERIT
 	global_position = spawn_position
@@ -192,6 +161,7 @@ func activate(kind: String, spawn_position: Vector3, tier: int) -> void:
 		variant.visible = variant_name == kind
 	var multiplier := 1.0 + float(tier - 1) * 0.14
 	var target_scale := Vector3.ONE
+	var growth := 1.0 + minf(1.0, log(1.0 + float(tier - 1) * 0.08))
 	if kind == "scout":
 		health = int(35 * multiplier)
 		move_speed = 4.4 + float(tier - 1) * 0.18
@@ -216,12 +186,14 @@ func activate(kind: String, spawn_position: Vector3, tier: int) -> void:
 		health = int(70 * multiplier)
 		move_speed = 2.4 + float(tier - 1) * 0.15
 		attack_damage = 6 + tier
+	target_scale *= growth
 	visual_root.scale = target_scale
 	collision_shape.scale = target_scale
 	_modulate_ink(GREEN_HOT if kind == "elite" else GREEN)
 
 func deactivate() -> void:
 	active = false
+	collision_shape.set_deferred("disabled", true)
 	visible = false
 	process_mode = Node.PROCESS_MODE_DISABLED
 
@@ -289,6 +261,8 @@ func take_damage(amount: int, critical := false) -> void:
 		deactivate()
 
 func _modulate_ink(color: Color) -> void:
+	var illustration := visual_root.get_node("TrooperIllustration") as Sprite3D
+	illustration.modulate = Color(3, 3, 3) if color == Color.WHITE else Color(1.35, 1.6, 1.5)
 	for part in ink_parts:
 		if is_instance_valid(part):
 			part.material_override = _material(color, 4.5 if color == Color.WHITE else 2.0)

@@ -42,6 +42,25 @@ func _run() -> void:
 		push_error("Gameplay systems smoke failed: field mod flow")
 		quit(1)
 		return
+	for enemy in game.enemy_pool: enemy.deactivate()
+	game.director.set_process(false)
+	game.player.position = Vector3(0, 0, 18)
+	Input.action_press("move_forward")
+	Input.action_press("sprint")
+	for frame in range(12): await physics_frame
+	if not game.player.is_sprinting or game.player.position.z >= 18.0:
+		push_error("Gameplay systems smoke failed: forward sprint")
+		quit(1)
+		return
+	Input.action_release("sprint")
+	Input.action_release("move_forward")
+	Input.action_press("aim")
+	for frame in range(3): await physics_frame
+	if not game.player.is_aiming:
+		push_error("Gameplay systems smoke failed: aim input")
+		quit(1)
+		return
+	Input.action_release("aim")
 	print("GAMEPLAY_SYSTEMS_SMOKE_PASS weapons=3 projectiles=", game.projectile_pool.size(), " pickups=", game.pickup_pool.size())
 	await create_timer(0.7).timeout
 	game.queue_free()

@@ -20,18 +20,18 @@ Then press Play. The project is configured for the Compatibility renderer and We
 - Right mouse button aim down sights
 - `Shift` sprint
 - `Space` jump
-- `C` crouch
+- `C` or `Ctrl` crouch
 - `1`, `2`, `3` or mouse wheel switch weapons
 - `R` reload
 - `Esc` pause/release mouse
-- `Enter` deploy from the title screen
+- Click or `Enter` deploy from the title screen
 - Click after death to redeploy
 
-Combat begins with seven enemies already active. The rifle, scattergun, and pistol use separate magazines and reserves. Weak-point hits deal critical damage. Kills build a short streak multiplier; enemies drop pooled health, ammo, and rapid-fire pickups. Every two minutes, play pauses for a three-option field-mod choice. Enemy health, speed, scale, active cap, ranged pressure, bruiser frequency, and elite events increase with survival time.
+Combat begins with five visible aliens ahead of the player. The rifle, scattergun, and pistol use separate magazines and reserves. Weak-point hits deal critical damage. Kills build a short streak multiplier; enemies drop pooled health, ammo, and rapid-fire pickups. Every two minutes, play pauses for a three-option field-mod choice. Enemy health, speed, scale, active cap, ranged pressure, bruiser frequency, and elite events increase with survival time.
 
 ## Mac touchpad controls
 
-The title screen and pause screen include **Control Calibration**. Enable **Touchpad Mode** for a slower, steadier look multiplier, then tune the sensitivity slider until camera movement feels comfortable. The setting is saved per computer in Godot's `user://` preferences and does not affect other players or devices.
+The pause screen includes **Control Calibration**. Enable **Touchpad Mode** for a slower, steadier look multiplier, then tune the sensitivity slider until camera movement feels comfortable. The setting is saved per computer in Godot's `user://` preferences and does not affect other players or devices.
 
 ## Mobile web controls
 
@@ -59,3 +59,24 @@ python3 -m http.server 8060 -d build/web
 ```
 
 The export excludes the 4K reference set and `.blend` source from the runtime package; the current PCK is under 1 MB.
+
+## September visual refresh
+
+The playable 3D arena now uses illustrated Capitol and tree cutouts, hand-drawn alien troopers, bruisers and overlords, and three illustrated first-person weapons. Their barrels are drawn from behind and calibrated toward the crosshair. Batched pen strokes add ornamental lamps, waving striped flags, benches, pool ripples, grass and cracked pavement. The HUD uses the bundled OFL-licensed Kalam handwriting font.
+
+The map is a stylized DC landmark arena, not a geographically exact city model. Trees use upright billboards and the Capitol uses a fixed illustrated facade. Movement, hits, cover and spawning remain three-dimensional. Blender is optional; automatic `.blend` importing is disabled so a fresh checkout can import without a local Blender installation.
+
+Wave numbers have no final level. Population is bounded for performance; new aliens continue gaining health and speed, grow up to twice their archetype size, and include more bruisers and recurring overlords. Jump buffering and a short ledge grace period make movement more forgiving.
+
+Art provenance and generation prompts: [assets/ink/ART_NOTES.md](assets/ink/ART_NOTES.md).
+
+Validation:
+
+```sh
+godot --headless --path . --script tests/combat_smoke.gd
+godot --headless --path . --script tests/gameplay_systems_smoke.gd
+godot --headless --path . --script tests/endurance_smoke.gd
+godot --path . --script tests/visual_capture.gd
+```
+
+The native visual capture writes three weapon views, an aiming view and a heavy-wave view to `/tmp/alien-*.png`. The endurance check simulates ten minutes, checks wave-100 scaling, and verifies deferred overlord spawning.

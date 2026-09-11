@@ -13,8 +13,11 @@ func reset_director() -> void:
 	elite_timer = 180.0
 	for enemy in main.enemy_pool:
 		enemy.deactivate()
-	for i in range(7):
-		_spawn_one(1)
+	# Let the player see and understand the invasion before threats surround them.
+	for i in range(5):
+		var enemy = main.get_free_enemy()
+		if enemy != null:
+			enemy.activate("standard", Vector3(-7.0 + i * 3.5, 0.35, 5.0 - (i % 2) * 10.0), 1)
 
 func _process(delta: float) -> void:
 	if not main.game_started or main.game_over or main.paused:
@@ -25,13 +28,13 @@ func _process(delta: float) -> void:
 	var active_count := _active_count()
 	var performance_cap := 28 if main.mobile_controls_visible else 42
 	var cap: int = min(performance_cap, 7 + int(main.survival_time / 60.0) * 2)
-	if spawn_timer <= 0.0 and active_count < cap:
+	if spawn_timer <= 0.0 and active_count < cap and elite_timer > 0.0:
 		_spawn_one(tier)
 		spawn_timer = max(0.28, 1.8 - main.survival_time * 0.008)
 	if elite_timer <= 0.0:
 		if active_count < cap:
 			_spawn_one(tier, true)
-		elite_timer = max(105.0, 180.0 - main.survival_time * 0.04)
+			elite_timer = max(45.0, 150.0 - main.survival_time * 0.06)
 
 func _active_count() -> int:
 	var count := 0
@@ -48,13 +51,14 @@ func _spawn_one(tier: int, force_elite := false) -> void:
 	var view_forward: Vector3 = -main.player.global_transform.basis.z
 	for attempt in range(6):
 		var angle := rng.randf_range(0.0, TAU)
-		var radius := rng.randf_range(34.0, 46.0)
+		var radius := rng.randf_range(26.0, 40.0)
 		spawn_position = main.player.global_position + Vector3(cos(angle) * radius, 0, sin(angle) * radius)
 		spawn_position.x = clampf(spawn_position.x, -46.0, 46.0)
 		spawn_position.z = clampf(spawn_position.z, -46.0, 46.0)
 		var direction: Vector3 = main.player.global_position.direction_to(spawn_position)
 		if direction.dot(view_forward) < 0.5 or attempt == 5:
 			break
+	spawn_position.y = 0.35
 	var kind := "standard"
 	if force_elite:
 		kind = "elite"
