@@ -48,3 +48,7 @@ The game should look like a child drew an alien invasion over black construction
 6. HUD and flow — start/pause/death states, vitals, ammo cells, score, time, accuracy, tier, streak, elite warning, and persistent high score.
 7. Responsive/performance pass — touchpad calibration, mobile controls, portrait gate, landscape request, safe areas, mobile enemy cap, and lean Web export.
 8. QA — script parse, runtime boot, deterministic combat smoke test, desktop browser screenshots, mobile landscape/portrait screenshots, and console-error check.
+
+## Gameplay interaction benchmark
+
+Neon Mall uses familiar modern cross-platform shooter conventions: fast grounded movement, sprint FOV, ADS precision, three visible weapon slots, readable projectile threats, strong weak-point feedback, large mobile action targets, optional auto-fire, and persistent per-device settings. The interaction model may feel familiar to Fortnite players, but all visual language, content, terminology, layouts, and assets remain specific to Neon Mall.

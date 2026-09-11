@@ -18,6 +18,7 @@ var collision_shape: CollisionShape3D
 var ink_parts: Array[MeshInstance3D] = []
 var motion_time := 0.0
 var hit_flash := 0.0
+var strafe_direction := 1.0
 
 func _ready() -> void:
 	_build_body()
@@ -117,8 +118,9 @@ func activate(kind: String, spawn_position: Vector3, tier: int) -> void:
 	visible = true
 	process_mode = Node.PROCESS_MODE_INHERIT
 	global_position = spawn_position
-	attack_cooldown = 0.0
+	attack_cooldown = 0.8 + float(get_instance_id() % 7) * 0.11
 	motion_time = float(get_instance_id() % 17)
+	strafe_direction = -1.0 if get_instance_id() % 2 == 0 else 1.0
 	hit_flash = 0.0
 	var multiplier := 1.0 + float(tier - 1) * 0.14
 	var target_scale := Vector3.ONE
@@ -167,9 +169,26 @@ func _physics_process(delta: float) -> void:
 	var distance := to_player.length()
 	visual_root.position.y = sin(motion_time * (7.0 if enemy_type == "scout" else 4.2)) * 0.06
 	visual_root.rotation.z = sin(motion_time * 2.3) * 0.035
-	if distance > attack_range * visual_root.scale.x:
-		velocity = to_player.normalized() * move_speed
-		look_at(Vector3(main.player.global_position.x, global_position.y, main.player.global_position.z), Vector3.UP)
+	look_at(Vector3(main.player.global_position.x, global_position.y, main.player.global_position.z), Vector3.UP)
+	var separation := Vector3.ZERO
+	for other in main.enemy_pool:
+		if other != self and other.active:
+			var offset: Vector3 = global_position - other.global_position
+			offset.y = 0
+			if offset.length_squared() > 0.01 and offset.length_squared() < 5.0:
+				separation += offset.normalized() * 1.4
+	var is_ranged := enemy_type == "standard" or enemy_type == "elite"
+	if is_ranged and distance > 7.5:
+		var forward := to_player.normalized()
+		var side := Vector3(-forward.z, 0, forward.x) * strafe_direction
+		var approach := forward if distance > (17.0 if enemy_type == "standard" else 13.0) else Vector3.ZERO
+		velocity = (approach + side * 0.42 + separation).normalized() * move_speed
+		move_and_slide()
+		if attack_cooldown <= 0.0 and distance < 25.0:
+			main.fire_enemy_projectile(global_position + Vector3(0, 1.35 * visual_root.scale.y, 0), main.player.global_position + Vector3(0, 0.9, 0), attack_damage)
+			attack_cooldown = 0.8 if enemy_type == "elite" else 1.55
+	elif distance > attack_range * visual_root.scale.x:
+		velocity = (to_player.normalized() + separation).normalized() * move_speed
 		move_and_slide()
 	else:
 		velocity = Vector3.ZERO
@@ -181,18 +200,18 @@ func _physics_process(delta: float) -> void:
 			tell.tween_property(visual_root, "scale", original_scale * Vector3(1.08, 0.92, 1.08), 0.08)
 			tell.tween_property(visual_root, "scale", original_scale, 0.12)
 
-func take_damage(amount: int) -> void:
+func take_damage(amount: int, critical := false) -> void:
 	if not active:
 		return
 	health -= amount
 	hit_flash = 0.08
 	_modulate_ink(Color.WHITE)
 	if main.has_method("register_hit"):
-		main.register_hit(global_position + Vector3(0, 1.2, 0))
+		main.register_hit(global_position + Vector3(0, 1.2, 0), critical)
 	if health <= 0:
 		if main.has_method("spawn_ink_burst"):
 			main.spawn_ink_burst(global_position + Vector3(0, 1.1, 0), visual_root.scale.x)
-		main.add_kill(_score_value())
+		main.enemy_defeated(_score_value(), enemy_type, global_position)
 		deactivate()
 
 func _modulate_ink(color: Color) -> void:

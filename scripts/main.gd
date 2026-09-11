@@ -5,6 +5,9 @@ const Enemy = preload("res://scripts/enemy.gd")
 const SpawnDirector = preload("res://scripts/spawn_director.gd")
 const MobileControls = preload("res://scripts/mobile_controls.gd")
 const InkHUD = preload("res://scripts/ink_hud.gd")
+const EnemyProjectile = preload("res://scripts/enemy_projectile.gd")
+const Pickup = preload("res://scripts/pickup.gd")
+const AudioManager = preload("res://scripts/audio_manager.gd")
 
 const GREEN := Color("#7dff35")
 const GREEN_SOFT := Color("#164d20")
@@ -39,9 +42,26 @@ var mobile_move_vector := Vector2.ZERO
 var mobile_look_delta := Vector2.ZERO
 var mobile_fire := false
 var mobile_reload := false
+var mobile_jump := false
+var mobile_sprint := false
+var mobile_aim := false
+var mobile_weapon := false
+var mobile_auto_fire := true
 var ink_hud: Control
 var streak := 0
 var streak_timer := 0.0
+var projectile_pool: Array[Node] = []
+var pickup_pool: Array[Node] = []
+var audio_manager: Node
+var upgrade_pending := false
+var upgrade_choices: Array[String] = []
+var next_upgrade_time := 120.0
+var best_survival := 0.0
+var auto_fire_toggle: CheckButton
+var reduced_motion := false
+var reduced_motion_toggle: CheckButton
+var material_cache: Dictionary = {}
+var tension_timer := 3.0
 const SETTINGS_PATH := "user://neon_mall_settings.cfg"
 
 func _ready() -> void:
@@ -51,6 +71,7 @@ func _ready() -> void:
 	_build_world()
 	_build_player()
 	_build_enemy_pool()
+	_build_runtime_pools()
 	_build_hud()
 	_show_title()
 
@@ -64,6 +85,13 @@ func _process(delta: float) -> void:
 	if not game_started or game_over or paused:
 		return
 	survival_time += delta
+	tension_timer -= delta
+	if tension_timer <= 0.0:
+		var threat_tier := int(survival_time / 60.0) + 1
+		play_sound("tension", 0.92 + float(threat_tier) * 0.035)
+		tension_timer = maxf(1.4, 4.6 - float(threat_tier) * 0.38)
+	if survival_time >= next_upgrade_time and not upgrade_pending:
+		_show_upgrade_choice()
 	if streak_timer > 0.0:
 		streak_timer -= delta
 		if streak_timer <= 0.0:
@@ -71,12 +99,24 @@ func _process(delta: float) -> void:
 	_update_hud()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if upgrade_pending and event is InputEventKey and event.pressed:
+		if event.keycode == KEY_1:
+			select_upgrade(0)
+		elif event.keycode == KEY_2:
+			select_upgrade(1)
+		elif event.keycode == KEY_3:
+			select_upgrade(2)
+		return
 	if event.is_action_pressed("pause") and game_started and not game_over:
 		_toggle_pause()
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER and not game_started:
 		_start_game()
 	if event.is_action_pressed("fire") and game_started and game_over:
 		_restart_game()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and game_started and not game_over and not paused:
+		_toggle_pause()
 
 func _build_world() -> void:
 	arena_root = Node3D.new()
@@ -110,6 +150,9 @@ func _build_world() -> void:
 	_make_ufo(Vector3(24, 20, 4), 0.8)
 
 func _make_material(color: Color, emission_energy := 1.0) -> StandardMaterial3D:
+	var key := "%s_%.2f" % [color.to_html(), emission_energy]
+	if material_cache.has(key):
+		return material_cache[key]
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.emission_enabled = true
@@ -118,6 +161,7 @@ func _make_material(color: Color, emission_energy := 1.0) -> StandardMaterial3D:
 	material.roughness = 1.0
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material_cache[key] = material
 	return material
 
 func _make_box(label: String, pos: Vector3, size: Vector3, color: Color, energy := 1.0) -> MeshInstance3D:
@@ -342,9 +386,20 @@ func _make_subway_entrance(pos: Vector3) -> void:
 	for i in range(5):
 		_make_visual_box("MetroStep", pos + Vector3(0, 0.1 + float(i) * 0.22, 0.8 - float(i) * 0.38), Vector3(3.3 - float(i) * 0.3, 0.15, 0.25), GREEN_SOFT, 0.45)
 
-func _make_zone_marker(_text: String, pos: Vector3, scale_factor: float) -> void:
+func _make_zone_marker(zone_text: String, pos: Vector3, scale_factor: float) -> void:
 	var marker := _make_visual_box("ZoneMarker", pos + Vector3(0, 0.06, 0), Vector3(5.5, 0.04, 0.08) * scale_factor, GREEN_SOFT, 0.7)
 	marker.rotation.y = 0.05
+	var label := Label3D.new()
+	label.name = "ZoneLabel"
+	label.text = zone_text
+	label.font_size = 42
+	label.pixel_size = 0.012 * scale_factor
+	label.modulate = GREEN_SOFT
+	label.outline_size = 4
+	label.outline_modulate = BLACK
+	label.position = pos + Vector3(0, 0.075, 0.6)
+	label.rotation.x = -PI * 0.5
+	arena_root.add_child(label)
 
 func _make_hotdog_cart(pos: Vector3) -> void:
 	_make_outline_box(pos + Vector3(0, 1.0, 0), Vector3(3.2, 1.7, 1.7), GREEN, 1.25)
@@ -400,6 +455,27 @@ func _build_enemy_pool() -> void:
 	director.main = self
 	add_child(director)
 
+func _build_runtime_pools() -> void:
+	for index in range(32):
+		var projectile := EnemyProjectile.new()
+		projectile.name = "ProjectilePool_%02d" % index
+		projectile.main = self
+		projectile.visible = false
+		projectile.process_mode = Node.PROCESS_MODE_DISABLED
+		add_child(projectile)
+		projectile_pool.append(projectile)
+	for index in range(16):
+		var pickup := Pickup.new()
+		pickup.name = "PickupPool_%02d" % index
+		pickup.main = self
+		pickup.visible = false
+		pickup.process_mode = Node.PROCESS_MODE_DISABLED
+		add_child(pickup)
+		pickup_pool.append(pickup)
+	audio_manager = AudioManager.new()
+	audio_manager.name = "ProceduralAudio"
+	add_child(audio_manager)
+
 func _build_hud() -> void:
 	hud = CanvasLayer.new()
 	hud.name = "HUD"
@@ -441,8 +517,8 @@ func _build_hud() -> void:
 			label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 			label.offset_left = -360
 			label.offset_right = -20
-			label.offset_top = -138
-			label.offset_bottom = -105
+			label.offset_top = -198
+			label.offset_bottom = -145
 			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		elif spec[0] == "top_right":
 			label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -471,7 +547,7 @@ func _build_settings_panel(root: Control) -> void:
 	settings_panel = PanelContainer.new()
 	settings_panel.name = "ControlSettings"
 	settings_panel.position = Vector2(28, 150)
-	settings_panel.size = Vector2(360, 205)
+	settings_panel.size = Vector2(390, 300)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.005, 0.025, 0.008, 0.94)
 	panel_style.border_color = GREEN
@@ -519,8 +595,20 @@ func _build_settings_panel(root: Control) -> void:
 	touchpad_toggle.add_theme_color_override("font_color", GREEN)
 	touchpad_toggle.toggled.connect(_on_touchpad_toggled)
 	content.add_child(touchpad_toggle)
+	auto_fire_toggle = CheckButton.new()
+	auto_fire_toggle.text = "MOBILE AUTO-FIRE"
+	auto_fire_toggle.button_pressed = mobile_auto_fire
+	auto_fire_toggle.add_theme_color_override("font_color", GREEN)
+	auto_fire_toggle.toggled.connect(_on_auto_fire_toggled)
+	content.add_child(auto_fire_toggle)
+	reduced_motion_toggle = CheckButton.new()
+	reduced_motion_toggle.text = "REDUCED CAMERA SHAKE"
+	reduced_motion_toggle.button_pressed = reduced_motion
+	reduced_motion_toggle.add_theme_color_override("font_color", GREEN)
+	reduced_motion_toggle.toggled.connect(_on_reduced_motion_toggled)
+	content.add_child(reduced_motion_toggle)
 	var note := Label.new()
-	note.text = "WASD move  •  Mouse/trackpad aim  •  Esc pause"
+	note.text = "WASD move • Shift sprint • Space jump • RMB aim\n1/2/3 weapons • C crouch • Esc pause"
 	note.add_theme_color_override("font_color", GREEN_SOFT)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(note)
@@ -531,14 +619,20 @@ func _load_settings() -> void:
 	if config.load(SETTINGS_PATH) == OK:
 		look_sensitivity = clamp(float(config.get_value("controls", "look_sensitivity", look_sensitivity)), 0.0008, 0.006)
 		touchpad_mode = bool(config.get_value("controls", "touchpad_mode", false))
+		mobile_auto_fire = bool(config.get_value("controls", "mobile_auto_fire", true))
+		reduced_motion = bool(config.get_value("accessibility", "reduced_motion", false))
 		high_score = int(config.get_value("progress", "high_score", 0))
+		best_survival = float(config.get_value("progress", "best_survival", 0.0))
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
 	config.load(SETTINGS_PATH)
 	config.set_value("controls", "look_sensitivity", look_sensitivity)
 	config.set_value("controls", "touchpad_mode", touchpad_mode)
+	config.set_value("controls", "mobile_auto_fire", mobile_auto_fire)
+	config.set_value("accessibility", "reduced_motion", reduced_motion)
 	config.set_value("progress", "high_score", high_score)
+	config.set_value("progress", "best_survival", best_survival)
 	config.save(SETTINGS_PATH)
 
 func _on_sensitivity_changed(value: float) -> void:
@@ -553,6 +647,14 @@ func _on_touchpad_toggled(enabled: bool) -> void:
 	_update_settings_readout()
 	_save_settings()
 
+func _on_auto_fire_toggled(enabled: bool) -> void:
+	mobile_auto_fire = enabled
+	_save_settings()
+
+func _on_reduced_motion_toggled(enabled: bool) -> void:
+	reduced_motion = enabled
+	_save_settings()
+
 func _update_settings_readout() -> void:
 	if sensitivity_value == null:
 		return
@@ -562,13 +664,14 @@ func _show_title() -> void:
 	hud_labels["center"].text = "NEON MALL\n\nPRESS ENTER TO DEPLOY"
 	hud_labels["center"].add_theme_font_size_override("font_size", 30)
 	hud_labels["objective"].text = "NATIONAL MALL // ENDLESS NIGHT"
-	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
+	hud_labels["hint"].text = "WASD MOVE   SHIFT SPRINT   SPACE JUMP   RMB AIM   1/2/3 WEAPONS"
 	hud_labels["stats"].text = ""
 	hud_labels["top_right"].text = ""
 	hud_labels["ammo"].text = ""
 	settings_panel.visible = true
 
 func _start_game() -> void:
+	get_tree().paused = false
 	game_started = true
 	game_over = false
 	paused = false
@@ -579,11 +682,18 @@ func _start_game() -> void:
 	hits = 0
 	streak = 0
 	streak_timer = 0.0
+	upgrade_pending = false
+	next_upgrade_time = 120.0
+	tension_timer = 2.5
 	player.reset_player()
 	director.reset_director()
+	for projectile in projectile_pool:
+		projectile.deactivate()
+	for pickup in pickup_pool:
+		pickup.deactivate()
 	hud_labels["center"].text = ""
 	hud_labels["center"].add_theme_font_size_override("font_size", 34)
-	hud_labels["hint"].text = "WASD MOVE   MOUSE AIM   LMB FIRE   R RELOAD   ESC PAUSE"
+	hud_labels["hint"].text = "SHIFT SPRINT   SPACE JUMP   RMB AIM   C CROUCH   1/2/3 WEAPONS"
 	settings_panel.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -605,9 +715,10 @@ func _toggle_pause() -> void:
 func player_died() -> void:
 	game_over = true
 	high_score = max(high_score, score)
+	best_survival = maxf(best_survival, survival_time)
 	_save_settings()
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	hud_labels["center"].text = "YOU GOT SWARMED\n\nSCORE %06d\nHIGH SCORE %06d\n\nCLICK TO REDEPLOY" % [score, high_score]
+	hud_labels["center"].text = "YOU GOT SWARMED\n\nSCORE %06d   KILLS %03d\nTIME %02d:%02d   BEST %02d:%02d\nHIGH SCORE %06d\n\nCLICK TO REDEPLOY" % [score, kills, int(survival_time) / 60, int(survival_time) % 60, int(best_survival) / 60, int(best_survival) % 60, high_score]
 
 func get_free_enemy() -> Node:
 	for enemy in enemy_pool:
@@ -615,20 +726,48 @@ func get_free_enemy() -> Node:
 			return enemy
 	return null
 
+func fire_enemy_projectile(start: Vector3, target: Vector3, damage: int) -> void:
+	for projectile in projectile_pool:
+		if not projectile.active:
+			projectile.activate(start, target, damage, 18.0 if survival_time > 180.0 else 14.0)
+			return
+
+func spawn_pickup(kind: String, at_position: Vector3) -> void:
+	for pickup in pickup_pool:
+		if not pickup.active:
+			pickup.activate(kind, at_position)
+			return
+
+func pickup_collected(kind: String) -> void:
+	play_sound("pickup", 1.15 if kind == "rapid" else 1.0)
+	hud_labels["hint"].text = ("RAPID INK UPGRADED" if kind == "rapid" else "+30 HEALTH" if kind == "health" else "AMMUNITION RESTORED")
+
+func play_sound(cue: String, pitch := 1.0) -> void:
+	if audio_manager != null:
+		audio_manager.play_cue(cue, pitch)
+
+func enemy_defeated(enemy_score: int, enemy_type: String, at_position: Vector3) -> void:
+	add_kill(enemy_score)
+	play_sound("death", 0.72 if enemy_type == "bruiser" or enemy_type == "elite" else 1.0)
+	if kills % 6 == 0:
+		var kind := "health" if player.health < player.max_health * 0.48 else "rapid" if kills % 18 == 0 else "ammo"
+		spawn_pickup(kind, at_position)
+
 func add_kill(enemy_score: int) -> void:
 	kills += 1
 	streak = streak + 1 if streak_timer > 0.0 else 1
 	streak_timer = 3.25
 	score += enemy_score + int(survival_time * 2.0) + max(0, streak - 1) * 25
 	if kills % 8 == 0:
-		player.reserve_ammo = min(240, player.reserve_ammo + 18)
+		player.apply_pickup("ammo")
 		hud_labels["hint"].text = "+18 INK CELLS // STREAK SUPPLY"
 	if kills % 12 == 0:
-		player.health = min(100, player.health + 15)
+		player.health = mini(player.max_health, player.health + 15)
 
-func register_hit(_world_position: Vector3) -> void:
+func register_hit(_world_position: Vector3, critical := false) -> void:
 	if ink_hud != null:
-		ink_hud.show_hit()
+		ink_hud.show_hit(critical)
+	play_sound("critical" if critical else "hit")
 
 func player_damaged() -> void:
 	if ink_hud != null:
@@ -638,6 +777,47 @@ func elite_spawned() -> void:
 	if ink_hud != null:
 		ink_hud.show_elite()
 	hud_labels["objective"].text = "WARNING // ELITE MASS INBOUND"
+	play_sound("elite")
+
+func _show_upgrade_choice() -> void:
+	upgrade_pending = true
+	paused = true
+	upgrade_choices.clear()
+	if int(next_upgrade_time / 120.0) % 2 == 1:
+		upgrade_choices.append("damage")
+		upgrade_choices.append("speed")
+		upgrade_choices.append("magazine")
+	else:
+		upgrade_choices.append("health")
+		upgrade_choices.append("fire_rate")
+		upgrade_choices.append("damage")
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	hud_labels["center"].text = "CHOOSE FIELD MOD\n\n[1] %s\n[2] %s\n[3] %s" % [_upgrade_label(upgrade_choices[0]), _upgrade_label(upgrade_choices[1]), _upgrade_label(upgrade_choices[2])]
+	hud_labels["hint"].text = "SELECT ONE UPGRADE // TOUCH ANY THIRD OF THE SCREEN"
+
+func select_upgrade(index: int) -> void:
+	if not upgrade_pending or index < 0 or index >= upgrade_choices.size():
+		return
+	var choice := upgrade_choices[index]
+	player.apply_upgrade(choice)
+	upgrade_pending = false
+	paused = false
+	next_upgrade_time += 120.0
+	hud_labels["center"].text = ""
+	hud_labels["hint"].text = "%s INSTALLED" % _upgrade_label(choice)
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	play_sound("pickup", 1.35)
+
+func _upgrade_label(kind: String) -> String:
+	if kind == "damage":
+		return "+20% DAMAGE"
+	if kind == "speed":
+		return "+12% MOVE SPEED"
+	if kind == "magazine":
+		return "LARGER MAGAZINES"
+	if kind == "health":
+		return "+25 MAX HEALTH"
+	return "+15% FIRE RATE"
 
 func spawn_ink_burst(world_position: Vector3, burst_scale: float) -> void:
 	var burst := Node3D.new()
@@ -672,6 +852,7 @@ func _update_hud() -> void:
 		accuracy = int(round(float(hits) / float(shots) * 100.0))
 	hud_labels["stats"].text = "SURVIVAL %02d:%02d    KILLS %03d    ACC %03d%%    TIER %02d" % [int(survival_time) / 60, int(survival_time) % 60, kills, accuracy, tier]
 	hud_labels["top_right"].text = "SCORE: %06d" % score
-	hud_labels["ammo"].text = "HP %03d    AMMO %02d / %03d    STREAK x%02d" % [player.health, player.ammo, player.reserve_ammo, streak]
+	var stance := "ADS" if player.is_aiming else "SPRINT" if player.is_sprinting else "CROUCH" if player.is_crouching else "READY"
+	hud_labels["ammo"].text = "%s  [%d]  %s\nHP %03d  SH %03d  AMMO %02d/%03d  STREAK x%02d" % [player.get_weapon_name(), player.current_weapon + 1, stance, player.health, player.shield, player.ammo, player.reserve_ammo, streak]
 	if player.reloading:
 		hud_labels["ammo"].text += "    RELOADING"

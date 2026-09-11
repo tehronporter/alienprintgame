@@ -44,11 +44,17 @@ func _spawn_one(tier: int, force_elite := false) -> void:
 	var enemy = main.get_free_enemy()
 	if enemy == null:
 		return
-	var angle := rng.randf_range(0.0, TAU)
-	var radius := rng.randf_range(34.0, 46.0)
-	var spawn_position: Vector3 = main.player.global_position + Vector3(cos(angle) * radius, 0, sin(angle) * radius)
-	spawn_position.x = clamp(spawn_position.x, -46.0, 46.0)
-	spawn_position.z = clamp(spawn_position.z, -46.0, 46.0)
+	var spawn_position := Vector3.ZERO
+	var view_forward: Vector3 = -main.player.global_transform.basis.z
+	for attempt in range(6):
+		var angle := rng.randf_range(0.0, TAU)
+		var radius := rng.randf_range(34.0, 46.0)
+		spawn_position = main.player.global_position + Vector3(cos(angle) * radius, 0, sin(angle) * radius)
+		spawn_position.x = clampf(spawn_position.x, -46.0, 46.0)
+		spawn_position.z = clampf(spawn_position.z, -46.0, 46.0)
+		var direction: Vector3 = main.player.global_position.direction_to(spawn_position)
+		if direction.dot(view_forward) < 0.5 or attempt == 5:
+			break
 	var kind := "standard"
 	if force_elite:
 		kind = "elite"

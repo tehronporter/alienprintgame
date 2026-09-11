@@ -17,12 +17,17 @@ Then press Play. The project is configured for the Compatibility renderer and We
 - `WASD` move
 - Mouse aim
 - Left mouse button fire
+- Right mouse button aim down sights
+- `Shift` sprint
+- `Space` jump
+- `C` crouch
+- `1`, `2`, `3` or mouse wheel switch weapons
 - `R` reload
 - `Esc` pause/release mouse
 - `Enter` deploy from the title screen
 - Click after death to redeploy
 
-Combat begins with seven enemies already active. Kills build a short streak multiplier; every eight kills restores ammunition and every twelve restores health. Enemy health, speed, scale, active cap, bruiser frequency, and elite events increase with survival time.
+Combat begins with seven enemies already active. The rifle, scattergun, and pistol use separate magazines and reserves. Weak-point hits deal critical damage. Kills build a short streak multiplier; enemies drop pooled health, ammo, and rapid-fire pickups. Every two minutes, play pauses for a three-option field-mod choice. Enemy health, speed, scale, active cap, ranged pressure, bruiser frequency, and elite events increase with survival time.
 
 ## Mac touchpad controls
 
@@ -30,7 +35,7 @@ The title screen and pause screen include **Control Calibration**. Enable **Touc
 
 ## Mobile web controls
 
-Mobile builds request landscape orientation and use an on-screen left joystick for movement, right-side drag aiming, plus Fire and Reload buttons. Portrait mode displays a rotate-device gate. Controls scale to phone/tablet height, respect browser safe areas, and cap active enemies at 28 for Web performance. `F2` toggles the touch-control overlay during desktop testing.
+Mobile builds request landscape orientation and use an on-screen left joystick, right-side drag aiming, dedicated Fire/Reload/Jump/Swap controls, and toggles for Sprint and Aim. Optional auto-fire engages when an alien is centered, following the familiar mobile-shooter pattern. Portrait mode displays a rotate-device gate. Controls scale to phone/tablet height, respect browser safe areas, and cap active enemies at 28 for Web performance. `F2` toggles the touch-control overlay during desktop testing.
 
 ## Blender source kit
 
@@ -46,6 +51,7 @@ This creates `neon_mall_source.blend` and `neon_mall_kit.glb` in the repository 
 
 ```sh
 godot --headless --path . --script tests/combat_smoke.gd
+godot --headless --path . --script tests/gameplay_systems_smoke.gd
 godot --headless --path . --export-release Web build/web/index.html
 python3 -m http.server 8060 -d build/web
 ```

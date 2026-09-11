@@ -22,4 +22,7 @@ func _run() -> void:
 		quit(1)
 		return
 	print("ENDURANCE_SMOKE_PASS simulated_seconds=600 pool=", pool_size_before, " active=", active_count)
+	game.queue_free()
+	await process_frame
+	await process_frame
 	quit(0)

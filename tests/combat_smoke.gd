@@ -34,4 +34,7 @@ func _run() -> void:
 		quit(1)
 		return
 	print("COMBAT_SMOKE_PASS collider=", result.collider.name, " kills=", game.kills, " score=", game.score)
+	await create_timer(0.5).timeout
+	game.queue_free()
+	await process_frame
 	quit(0)
