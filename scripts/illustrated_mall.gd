@@ -67,8 +67,9 @@ func build(owner_game: Node) -> void:
 			for y in [0.05, 0.7]:
 				stroke(Vector3(side * 15.5 - 1.1, y, z - 0.6), Vector3(side * 15.5 + 1.1, y, z - 0.6), 0.035)
 	game._make_hotdog_cart(Vector3(-12, 0, 15))
-	game._make_wrecked_car(Vector3(15, 0, 5), 0)
+	drawn_car(Vector3(15, 0, 5))
 	game._make_subway_entrance(Vector3(36, 0, 0))
+	street_details()
 	var mesh := MeshInstance3D.new()
 	mesh.name = "BatchedHandDrawnDetails"
 	mesh.mesh = pen.commit()
@@ -155,3 +156,61 @@ func ufo(p: Vector3, radius: float) -> void:
 	for i in range(4):
 		var a := p + Vector3((i - 1.5) * 0.35, -0.7, 0)
 		stroke(a, a + Vector3((i - 1.5) * 0.4, -2.5, 0), 0.02, DIM)
+
+func drawn_car(p: Vector3) -> void:
+	game._make_box("CarCover", p + Vector3(0, 0.6, 0), Vector3(4.4, 1.2, 1.7), Color("#010401"), 0.1)
+	var contour := [Vector3(-2.4, 0.5, 0), Vector3(-2.4, 1.0, 0), Vector3(-1.3, 1.15, 0), Vector3(-0.7, 1.9, 0), Vector3(0.9, 1.85, 0), Vector3(1.5, 1.15, 0), Vector3(2.4, 1.0, 0), Vector3(2.4, 0.5, 0)]
+	for side in [-1.0, 1.0]:
+		for i in range(contour.size() - 1):
+			stroke(p + contour[i] + Vector3(0, 0, side * 0.92), p + contour[i + 1] + Vector3(0, 0, side * 0.92), 0.028)
+		for x in [-1.5, 1.5]:
+			ring(p + Vector3(x, 0.45, side * 0.98), Vector2(0.46, 0.46), 22, 0.03)
+			ring(p + Vector3(x, 0.45, side * 0.99), Vector2(0.28, 0.28), 16, 0.02)
+			for spoke in range(8):
+				var t := spoke * TAU / 8
+				stroke(p + Vector3(x, 0.45, side * 0.99), p + Vector3(x + cos(t) * 0.28, 0.45 + sin(t) * 0.28, side * 0.99), 0.015)
+		stroke(p + Vector3(0.2, 0.6, side * 0.94), p + Vector3(0.2, 1.8, side * 0.94), 0.02)
+		stroke(p + Vector3(-1.1, 1.2, side * 0.94), p + Vector3(1.4, 1.2, side * 0.94), 0.02)
+	for v in contour: stroke(p + v + Vector3(0, 0, -0.92), p + v + Vector3(0, 0, 0.92), 0.023)
+
+func street_details() -> void:
+	# Broken paving joints, paper scraps and hatch marks give the foreground scale.
+	for row in range(24):
+		var z := -10.0 + row * 2.4
+		for col in range(6):
+			var x := -8.0 + col * 2.8
+			stroke(Vector3(x + 0.1, 0.018, z), Vector3(x + 2.5, 0.018, z + rng.randf_range(-0.08, 0.08)), 0.011, DIM)
+			if (row + col) % 3 == 0: stroke(Vector3(x, 0.019, z), Vector3(x + 0.06, 0.019, z + 1.5), 0.012, DIM)
+	for i in range(42):
+		var p := Vector3(rng.randf_range(-18, 18), 0.025, rng.randf_range(-10, 42))
+		var corners := [p, p + Vector3(0.55, 0, 0.12), p + Vector3(0.4, 0, 0.75), p + Vector3(-0.14, 0, 0.6), p]
+		for edge in range(4): stroke(corners[edge], corners[edge + 1], 0.018)
+		for line in range(3): stroke(p + Vector3(0.06, 0, 0.18 + line * 0.13), p + Vector3(0.35, 0, 0.24 + line * 0.13), 0.014, DIM)
+	for side in [-1.0, 1.0]:
+		for i in range(6):
+			var p := Vector3(side * 19, 0, -25 + i * 11)
+			for y in [0.1, 0.85]: ring(p + Vector3(0, y, 0), Vector2(0.8, 0.5), 22, 0.025, false)
+			for rib in range(12):
+				var t := TAU * rib / 12
+				stroke(p + Vector3(cos(t) * 0.8, 0.1, sin(t) * 0.5), p + Vector3(cos(t) * 0.8, 0.85, sin(t) * 0.5), 0.018)
+			var bush := Art.sprite("tree", 1.9, true)
+			bush.position += p + Vector3(0, 0.55, 0)
+			add_child(bush)
+		# Layered city skyline beyond the park trees.
+		for block in range(6):
+			var p := Vector3(side * (35 + block * 2), 0, -41 + block * 14)
+			var h := 7.0 + block % 3 * 2
+			for x in [-2.5, 2.5]: stroke(p + Vector3(x, 0, 0), p + Vector3(x, h, 0), 0.024, DIM)
+			stroke(p + Vector3(-2.5, h, 0), p + Vector3(2.5, h, 0), 0.03, DIM)
+			for floor in range(3):
+				for window in range(4):
+					var q := p + Vector3(-1.8 + window * 1.1, 2 + floor * 1.8, 0)
+					stroke(q, q + Vector3(0, 0.75, 0), 0.03, DIM)
+	var sign := Label3D.new()
+	sign.text = "HOT DOGS"
+	sign.font = preload("res://assets/fonts/Kalam-Regular.ttf")
+	sign.font_size = 64
+	sign.pixel_size = 0.008
+	sign.modulate = INK
+	sign.position = Vector3(-12, 1.2, 15.88)
+	add_child(sign)

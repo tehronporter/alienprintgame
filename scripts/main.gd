@@ -46,7 +46,7 @@ var mobile_jump := false
 var mobile_sprint := false
 var mobile_aim := false
 var mobile_weapon := false
-var mobile_auto_fire := true
+var mobile_auto_fire := false
 var ink_hud: Control
 var streak := 0
 var streak_timer := 0.0
@@ -528,6 +528,7 @@ func _build_hud() -> void:
 	hud.name = "HUD"
 	add_child(hud)
 	var root := Control.new()
+	root.name = "Control"
 	var ink_theme := Theme.new()
 	ink_theme.default_font = preload("res://assets/fonts/Kalam-Regular.ttf")
 	root.theme = ink_theme
@@ -660,7 +661,7 @@ func _build_settings_panel(root: Control) -> void:
 	reduced_motion_toggle.toggled.connect(_on_reduced_motion_toggled)
 	content.add_child(reduced_motion_toggle)
 	var note := Label.new()
-	note.text = "WASD move • Shift sprint • Space jump • RMB aim\n1/2/3 weapons • C crouch • Esc pause"
+	note.text = "Arrows move • Trackpad look • Hold click to fire\nOptional: Space jump • Q precision aim\nR reload • Tab swap • Esc pause"
 	note.add_theme_color_override("font_color", GREEN_SOFT)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(note)
@@ -671,7 +672,7 @@ func _load_settings() -> void:
 	if config.load(SETTINGS_PATH) == OK:
 		look_sensitivity = clamp(float(config.get_value("controls", "look_sensitivity", look_sensitivity)), 0.0008, 0.006)
 		touchpad_mode = bool(config.get_value("controls", "touchpad_mode", false))
-		mobile_auto_fire = bool(config.get_value("controls", "mobile_auto_fire", true))
+		mobile_auto_fire = bool(config.get_value("controls", "mobile_auto_fire", false))
 		reduced_motion = bool(config.get_value("accessibility", "reduced_motion", false))
 		high_score = int(config.get_value("progress", "high_score", 0))
 		best_survival = float(config.get_value("progress", "best_survival", 0.0))
@@ -716,7 +717,10 @@ func _show_title() -> void:
 	hud_labels["center"].text = "NEON MALL\nDEFEND WASHINGTON, DC\n\nCLICK OR PRESS ENTER TO PLAY"
 	hud_labels["center"].add_theme_font_size_override("font_size", 38)
 	hud_labels["objective"].text = "NATIONAL MALL // ENDLESS NIGHT"
-	hud_labels["hint"].text = "WASD MOVE   SHIFT SPRINT   SPACE JUMP   RMB AIM   1/2/3 WEAPONS"
+	hud_labels["hint"].text = "ARROWS MOVE   TRACKPAD LOOK   HOLD CLICK TO FIRE"
+	if mobile_controls_visible:
+		hud_labels["center"].text = "NEON MALL\nDEFEND WASHINGTON, DC\n\nTAP TO PLAY"
+		hud_labels["hint"].text = "LEFT THUMB MOVE  •  RIGHT THUMB AIM"
 	hud_labels["stats"].text = ""
 	hud_labels["top_right"].text = ""
 	hud_labels["ammo"].text = ""
@@ -745,24 +749,26 @@ func _start_game() -> void:
 		pickup.deactivate()
 	hud_labels["center"].text = ""
 	hud_labels["center"].add_theme_font_size_override("font_size", 34)
-	hud_labels["hint"].text = "SHIFT SPRINT   SPACE JUMP   RMB AIM   C CROUCH   1/2/3 WEAPONS"
+	hud_labels["hint"].text = "ARROWS MOVE   TRACKPAD LOOK   HOLD CLICK TO FIRE"
 	settings_panel.visible = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if mobile_controls_visible else Input.MOUSE_MODE_CAPTURED)
 
 func _restart_game() -> void:
 	_start_game()
 
 func _toggle_pause() -> void:
 	paused = not paused
+	var controls = hud.get_node_or_null("Control/MobileControls")
+	if controls != null: controls.reset_touches()
 	get_tree().paused = paused
 	if paused:
-		hud_labels["center"].text = "PAUSED\n\nPRESS ESC TO RETURN"
-		settings_panel.visible = true
+		hud_labels["center"].text = "PAUSED\n\nTAP TO RETURN" if mobile_controls_visible else "PAUSED\n\nPRESS ESC TO RETURN"
+		settings_panel.visible = not mobile_controls_visible
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		hud_labels["center"].text = ""
 		settings_panel.visible = false
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if mobile_controls_visible else Input.MOUSE_MODE_CAPTURED)
 
 func player_died() -> void:
 	game_over = true
@@ -857,7 +863,7 @@ func select_upgrade(index: int) -> void:
 	next_upgrade_time += 120.0
 	hud_labels["center"].text = ""
 	hud_labels["hint"].text = "%s INSTALLED" % _upgrade_label(choice)
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if mobile_controls_visible else Input.MOUSE_MODE_CAPTURED)
 	play_sound("pickup", 1.35)
 
 func _upgrade_label(kind: String) -> String:
@@ -905,5 +911,7 @@ func _update_hud() -> void:
 	if ink_hud.elite_timer > 0:
 		hud_labels["objective"].text = "ALIEN OVERLORD INBOUND"
 	hud_labels["ammo"].text = ""
+	if mobile_controls_visible and survival_time <= 15:
+		hud_labels["hint"].text = "LEFT THUMB MOVE  •  HOLD + DRAG FIRE TO SHOOT AND AIM"
 	if survival_time > 15:
 		hud_labels["hint"].text = ""

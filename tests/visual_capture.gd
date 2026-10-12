@@ -23,6 +23,12 @@ func capture() -> void:
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("/tmp/alien-ads.png")
 	game.player.is_aiming = false
+	game.mobile_controls_visible = true
+	game._update_hud()
+	await create_timer(0.2).timeout
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/alien-mobile.png")
+	game.mobile_controls_visible = false
 	game.enemy_pool[0].activate("bruiser", Vector3(-4, 0.35, 6), 4)
 	game.enemy_pool[1].activate("elite", Vector3(4, 0.35, 5), 4)
 	await create_timer(0.3).timeout

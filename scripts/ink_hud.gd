@@ -45,11 +45,16 @@ func _draw() -> void:
 	_draw_crosshair(center)
 	if not main.game_started or main.game_over:
 		return
-	_draw_radar(Vector2(72, 113), 33.0)
-	_draw_meter(Vector2(58, view.y - 76), float(main.player.health) / float(main.player.max_health), "HEALTH", GREEN)
-	_draw_meter(Vector2(58, view.y - 122), float(main.player.shield) / 100.0, "SHIELD", HOT)
-	_draw_ammo(Vector2(view.x - 222, view.y - 70), main.player.ammo, main.player.get_mag_size())
-	_draw_weapon_slots(Vector2(center.x - 130, view.y - 78))
+	if main.mobile_controls_visible:
+		_draw_meter(Vector2(58, 153), float(main.player.health) / float(main.player.max_health), "HEALTH", GREEN)
+		_draw_meter(Vector2(58, 107), float(main.player.shield) / 100.0, "SHIELD", HOT)
+		_draw_ammo(Vector2(view.x - 355, 122), main.player.ammo, main.player.get_mag_size())
+	else:
+		_draw_radar(Vector2(72, 113), 33.0)
+		_draw_meter(Vector2(58, view.y - 76), float(main.player.health) / float(main.player.max_health), "HEALTH", GREEN)
+		_draw_meter(Vector2(58, view.y - 122), float(main.player.shield) / 100.0, "SHIELD", HOT)
+		_draw_ammo(Vector2(view.x - 222, view.y - 70), main.player.ammo, main.player.get_mag_size())
+		_draw_weapon_slots(Vector2(center.x - 130, view.y - 78))
 	if critical_timer > 0.0:
 		draw_string(FONT, center + Vector2(-58, -36), "WEAK POINT", HORIZONTAL_ALIGNMENT_LEFT, -1, 17, HOT)
 	if elite_timer > 0.0:

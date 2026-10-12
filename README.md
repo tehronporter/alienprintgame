@@ -14,20 +14,22 @@ Then press Play. The project is configured for the Compatibility renderer and We
 
 ## Controls
 
-- `WASD` move
-- Mouse aim
-- Left mouse button fire
-- Right mouse button aim down sights
+The main layout uses two hands: one on the arrow keys to move, the other on the trackpad to look and click-and-hold to shoot. Weapons fire repeatedly while held and reload an empty magazine automatically when reserve ammo is available. Other shortcuts are optional.
+
+- Arrow keys or `WASD` move
+- Trackpad or mouse look
+- Click and hold the trackpad or left mouse button to keep firing while aiming
+- `Q` toggles precision aim; right mouse button holds aim
 - `Shift` sprint
-- `Space` jump
+- `Space` or `E` jump (optional)
 - `C` or `Ctrl` crouch
-- `1`, `2`, `3` or mouse wheel switch weapons
+- `Tab`, `1`, `2`, `3` or mouse wheel switch weapons
 - `R` reload
 - `Esc` pause/release mouse
 - Click or `Enter` deploy from the title screen
 - Click after death to redeploy
 
-Combat begins with five visible aliens ahead of the player. The rifle, scattergun, and pistol use separate magazines and reserves. Weak-point hits deal critical damage. Kills build a short streak multiplier; enemies drop pooled health, ammo, and rapid-fire pickups. Every two minutes, play pauses for a three-option field-mod choice. Enemy health, speed, scale, active cap, ranged pressure, bruiser frequency, and elite events increase with survival time.
+Combat begins with five visible aliens ahead of the player. The rifle, scattergun, and pistol use separate magazines and reserves. Weak-point hits deal critical damage. Kills build a short streak multiplier; enemies drop pooled health, ammo, and rapid-fire pickups. Shields begin recovering after six seconds without a hit. Every two minutes, play pauses for a three-option field-mod choice. Enemy health, speed, scale, active cap, ranged pressure, bruiser frequency, and elite events increase with survival time.
 
 ## Mac touchpad controls
 
@@ -35,7 +37,7 @@ The pause screen includes **Control Calibration**. Enable **Touchpad Mode** for 
 
 ## Mobile web controls
 
-Mobile builds request landscape orientation and use an on-screen left joystick, right-side drag aiming, dedicated Fire/Reload/Jump/Swap controls, and toggles for Sprint and Aim. Optional auto-fire engages when an alien is centered, following the familiar mobile-shooter pattern. Portrait mode displays a rotate-device gate. Controls scale to phone/tablet height, respect browser safe areas, and cap active enemies at 28 for Web performance. `F2` toggles the touch-control overlay during desktop testing.
+Mobile builds request landscape orientation and use an on-screen left joystick, right-side drag aiming, dedicated Fire/Reload/Jump/Swap controls, and a toggle for Aim. Push the left stick fully forward to sprint. Drag the Fire button to aim while shooting; separate touch IDs keep movement, looking and firing independent. Tap Pause to stop and tap again to resume. Releasing a finger, pausing, or rotating to portrait clears held inputs. Health and ammo sit above the touch controls. Hold-and-drag firing is the default. Optional automatic firing when an alien is centered remains available in settings. Portrait mode displays a rotate-device gate. Controls scale to phone/tablet height, respect browser safe areas, and cap active enemies at 28 for Web performance. `F2` toggles the touch-control overlay during desktop testing.
 
 ## Blender source kit
 
@@ -80,3 +82,5 @@ godot --path . --script tests/visual_capture.gd
 ```
 
 The native visual capture writes three weapon views, an aiming view and a heavy-wave view to `/tmp/alien-*.png`. The endurance check simulates ten minutes, checks wave-100 scaling, and verifies deferred overlord spawning.
+
+The second visual pass adds broken paving joints, paper scraps, planters, background buildings, a drawn car with wheel spokes and window outlines, and a handwritten cart sign. `tests/control_smoke.gd` verifies desktop bindings, simultaneous touch movement/fire/aim, pause cleanup, and shield recovery.

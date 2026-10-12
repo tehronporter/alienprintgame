@@ -38,6 +38,8 @@ var damage_multiplier := 1.0
 var speed_multiplier := 1.0
 var fire_rate_multiplier := 1.0
 var is_aiming := false
+var aim_toggled := false
+var shield_recovery := 0.0
 var is_crouching := false
 var is_sprinting := false
 var rng := RandomNumberGenerator.new()
@@ -183,6 +185,8 @@ func reset_player() -> void:
 	damage_kick = 0.0
 	hurt_cooldown = 0.0
 	is_aiming = false
+	aim_toggled = false
+	shield_recovery = 0.0
 	is_crouching = false
 	is_sprinting = false
 	_apply_weapon_pose()
@@ -217,6 +221,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		pitch = clampf(pitch - event.relative.y * sensitivity, -1.35, 1.35)
 		rotation.y = yaw
 		camera.rotation.x = pitch
+	if main.paused or not main.game_started or main.game_over:
+		return
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_F2:
 			main.mobile_controls_visible = not main.mobile_controls_visible
@@ -235,6 +241,12 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not main.game_started or main.game_over or main.paused:
 		return
+	if Input.is_action_just_pressed("aim_toggle"): aim_toggled = not aim_toggled
+	if Input.is_action_just_pressed("weapon_next"): switch_weapon((current_weapon + 1) % 3)
+	shield_recovery += delta
+	if shield_recovery > 6.0 and shield < 100:
+		shield = mini(100, shield + 1)
+		shield_recovery = 5.9
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
 	recoil = maxf(0.0, recoil - delta * 7.0)
 	damage_kick = maxf(0.0, damage_kick - delta * 5.0)
@@ -271,7 +283,7 @@ func _handle_movement(delta: float) -> void:
 	var input_vec := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if main.mobile_move_vector.length() > 0.05:
 		input_vec = main.mobile_move_vector
-	is_aiming = Input.is_action_pressed("aim") or main.mobile_aim
+	is_aiming = Input.is_action_pressed("aim") or aim_toggled or main.mobile_aim
 	is_crouching = Input.is_action_pressed("crouch")
 	var wants_sprint: bool = Input.is_action_pressed("sprint") or bool(main.mobile_sprint)
 	is_sprinting = wants_sprint and input_vec.y < -0.35 and not is_aiming and not is_crouching
@@ -461,6 +473,7 @@ func get_mag_size() -> int:
 	return int(weapon_states[current_weapon]["mag"])
 
 func take_damage(amount: int) -> void:
+	shield_recovery = 0.0
 	if main.game_over or hurt_cooldown > 0.0:
 		return
 	var remaining_damage := amount
